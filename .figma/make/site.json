@@ -1,0 +1,10 @@
+{
+  "description": "Creates custom websites tailored to client requirements, delivering personalized online solutions that enhance brand presence and user engagement.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
