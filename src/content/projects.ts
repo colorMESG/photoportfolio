@@ -10,6 +10,7 @@ export const portraitStudy: PhotographyProject = {
   title: "Nghiên cứu Chân dung",
   year: "2026",
   order: 1,
+  displayNumber: "01",
   published: true,
   images: [
     {
@@ -33,6 +34,7 @@ export const locationSeries: PhotographyProject = {
   title: "Loạt ảnh Ngoại cảnh",
   year: "2025",
   order: 2,
+  displayNumber: "02",
   published: true,
   images: [
     {
@@ -59,6 +61,7 @@ export const contactSheet: PhotographyProject = {
   title: "Thước phim tiếp xúc",
   year: "2026",
   order: 3,
+  displayNumber: "03",
   published: true,
   images: [
     {
@@ -88,6 +91,7 @@ export const veilStudy: PhotographyProject = {
   title: "Nghiên cứu Màn che",
   year: "2026",
   order: 4,
+  displayNumber: "04",
   published: true,
   images: [
     {
@@ -105,6 +109,7 @@ export const fragments: PhotographyProject = {
   title: "Mảnh ghép",
   year: "2025–2026",
   order: 5,
+  displayNumber: "05",
   published: true,
   images: [
     {

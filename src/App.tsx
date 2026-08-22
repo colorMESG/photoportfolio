@@ -27,8 +27,6 @@ import {
 type HP = { onImgHover: () => void; onImgLeave: () => void };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-/** Renders a project's `order` as the two-digit numeral used in section labels. */
-const num2 = (n?: number) => String(n ?? 0).padStart(2, "0");
 
 // ─── Lightbox context ─────────────────────────────────────────────────────────
 const LbCtx = createContext<{ open: (src: string, ei: number) => void }>({ open: () => {} });
@@ -469,14 +467,14 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         <Reveal delay={80}><ScrambleText text={selectedWorksHeading.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9, marginLeft:"8vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
-        <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{num2(portraitStudy.order)}</Lbl><div><Lbl>{portraitStudy.title}</Lbl><Lbl>{portraitStudy.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{portraitStudy.displayNumber}</Lbl><div><Lbl>{portraitStudy.title}</Lbl><Lbl>{portraitStudy.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4 md:gap-6 items-start">
           <Reveal><Photo src={p1a.src} alt={p1a.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1a.exifIdx} /></Reveal>
           <Reveal delay={160} className="md:mt-32"><Photo src={p1b.src} alt={p1b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1b.exifIdx} /></Reveal>
         </div>
       </div>
       <div className="mt-24 bg-[#0a0a0a] py-20 px-8 md:px-14">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{num2(locationSeries.order)}</Lbl><div><Lbl light>{locationSeries.title}</Lbl><Lbl light>{locationSeries.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{locationSeries.displayNumber}</Lbl><div><Lbl light>{locationSeries.title}</Lbl><Lbl light>{locationSeries.year}</Lbl></div></Reveal>
         <div className="flex flex-col md:flex-row gap-4 md:gap-5 items-end">
           <Reveal className="w-full md:w-[68%]"><Photo src={p2a.src} alt={p2a.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2a.exifIdx} /></Reveal>
           <Reveal delay={140} className="w-full md:w-[30%]"><Photo src={p2b.src} alt={p2b.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2b.exifIdx} /></Reveal>
@@ -484,7 +482,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         <Reveal delay={200} className="mt-8"><ScrambleText text={locationSeriesWord} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{num2(contactSheet.order)}</Lbl><div><Lbl>{contactSheet.title}</Lbl><Lbl>{contactSheet.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{contactSheet.displayNumber}</Lbl><div><Lbl>{contactSheet.title}</Lbl><Lbl>{contactSheet.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-3 gap-2 md:gap-4">
           {contactSheet.images.map((img,i) => <Reveal key={img.id} delay={i*100}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3.2" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} /></Reveal>)}
         </div>
@@ -493,12 +491,12 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         <Reveal>
           <div className="relative mx-4 md:mx-8">
             <Photo src={p4.src} alt={p4.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p4.exifIdx} />
-            <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10"><Lbl light>{num2(veilStudy.order)}</Lbl><Lbl light>{veilStudy.title}</Lbl><Lbl light>{veilStudy.year}</Lbl></div>
+            <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10"><Lbl light>{veilStudy.displayNumber}</Lbl><Lbl light>{veilStudy.title}</Lbl><Lbl light>{veilStudy.year}</Lbl></div>
           </div>
         </Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14 pb-24">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{num2(fragments.order)}</Lbl><div><Lbl>{fragments.title}</Lbl><Lbl>{fragments.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{fragments.displayNumber}</Lbl><div><Lbl>{fragments.title}</Lbl><Lbl>{fragments.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_0.6fr_0.5fr] gap-4 items-start">
           <Reveal><Photo src={p5a.src} alt={p5a.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5a.exifIdx} /></Reveal>
           <Reveal delay={120} className="md:mt-16"><Photo src={p5b.src} alt={p5b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5b.exifIdx} /></Reveal>

@@ -10,13 +10,6 @@
  * and are not consumed by the UI yet.
  */
 
-export interface FocalPoint {
-  /** 0–1, left to right. */
-  x: number;
-  /** 0–1, top to bottom. */
-  y: number;
-}
-
 export interface ProjectImage {
   id: string;
   src: string;
@@ -24,7 +17,13 @@ export interface ProjectImage {
   caption?: string;
   width?: number;
   height?: number;
-  focalPoint?: FocalPoint;
+  /**
+   * Focal point as a percentage, 0–100, mapping directly to CSS
+   * `object-position: {focalPointX}% {focalPointY}%`. Defaults to centre (50/50)
+   * when unset. Crops are never baked into image URLs.
+   */
+  focalPointX?: number;
+  focalPointY?: number;
   order?: number;
   featured?: boolean;
   /** Index into `exifPresets`; selects the camera data revealed on hover. */
@@ -48,7 +47,10 @@ export interface PhotographyProject {
   coverImage?: ProjectImage;
   images: ProjectImage[];
   published?: boolean;
+  /** Sort position only. Changing it must never alter `displayNumber`. */
   order?: number;
+  /** The label rendered in the UI, e.g. "01". Edited independently of `order`. */
+  displayNumber?: string;
 }
 
 /**
