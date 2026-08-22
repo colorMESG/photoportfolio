@@ -59,6 +59,15 @@ const I = {
   t2:    "https://images.unsplash.com/photo-1756806481210-672c297558e7?w=900&h=500&fit=crop&auto=format",
   t3:    "https://images.unsplash.com/photo-1650732325522-6f758102e71a?w=900&h=500&fit=crop&auto=format",
   t4:    "https://images.unsplash.com/photo-1776236075200-7c9b1b2d327e?w=900&h=600&fit=crop&auto=format",
+  // ── FLYCAM aerials — Huy Nguyen, Ryan Le, Kevin Charit, Pierre Bonvalot
+  fly1:  "https://images.unsplash.com/photo-1668000018482-a02acf02b22a?w=1400&h=700&fit=crop&auto=format",
+  fly2:  "https://images.unsplash.com/photo-1697015556424-756b0f152f0c?w=1400&h=700&fit=crop&auto=format",
+  fly3:  "https://images.unsplash.com/photo-1695094412603-3340f1e72232?w=500&h=750&fit=crop&auto=format",
+  fly4:  "https://images.unsplash.com/photo-1787173824957-9b6cc293494a?w=900&h=500&fit=crop&auto=format",
+  fly5:  "https://images.unsplash.com/photo-1697015556006-9e767c7187dc?w=500&h=750&fit=crop&auto=format",
+  fly6:  "https://images.unsplash.com/photo-1743485754031-a674557a83cf?w=500&h=750&fit=crop&auto=format",
+  fly7:  "https://images.unsplash.com/photo-1779185249766-70c079a11f4f?w=1400&h=700&fit=crop&auto=format",
+  fly8:  "https://images.unsplash.com/photo-1772717083265-2d93b89f0b7f?w=1400&h=700&fit=crop&auto=format",
 };
 
 const EXIF = [
@@ -336,7 +345,7 @@ function StatCounter({ target, suffix="+", label }: { target:number; suffix?:str
 
 // ─── MARQUEE ─────────────────────────────────────────────────────────────────
 function Marquee() {
-  const items = ["Chân dung Doanh nghiệp","Headshot","Nhiếp ảnh Sự kiện","Ảnh Nhân sự","Chiến dịch Thương hiệu","Báo cáo Thường niên","Nhiếp ảnh Hội nghị","Ra mắt Sản phẩm","Ảnh Đội nhóm","Lễ trao giải"];
+  const items = ["Chân dung Doanh nghiệp","Headshot","Nhiếp ảnh Sự kiện","Flycam & Aerial","Ảnh Nhân sự","Chiến dịch Thương hiệu","Nhiếp ảnh Hội nghị","Ra mắt Sản phẩm","Ảnh Đội nhóm","Phong cảnh từ trên cao"];
   const text = items.map(s => `${s}  ·  `).join("");
   return (
     <>
@@ -477,7 +486,7 @@ function Header() {
         <div className="font-mono text-[9px] tracking-[0.22em] uppercase mt-0.5" style={{ color:sc?"#aaa":"rgba(255,255,255,0.4)" }}>Nhiếp ảnh</div>
       </div>
       <nav className="flex items-center gap-7 md:gap-10">
-        {[{label:"Tác phẩm",href:"#work"},{label:"Doanh nghiệp",href:"#business"},{label:"Về tôi",href:"#about"},{label:"Instagram",href:"https://instagram.com/nahn"}].map(({label,href}) => (
+        {[{label:"Tác phẩm",href:"#work"},{label:"Flycam",href:"#flycam"},{label:"Doanh nghiệp",href:"#business"},{label:"Về tôi",href:"#about"},{label:"Liên hệ",href:"#contact"}].map(({label,href}) => (
           <MagneticLink key={label} href={href} color={fg}>{label}</MagneticLink>
         ))}
       </nav>
@@ -497,7 +506,7 @@ function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/10" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
       <div className="absolute inset-0 flex flex-col justify-center overflow-visible pointer-events-none" style={{ paddingLeft:"5vw" }}>
-        {(["NAHN","NHIẾP","ẢNH."] as const).map((word, idx) => (
+        {(["NAHN","PHOTO","GRAPHY."] as const).map((word, idx) => (
           <ScrambleText key={word} text={word} className="font-display font-black leading-none pointer-events-auto"
             style={{ fontSize:"clamp(64px,18vw,290px)", letterSpacing:"-0.03em", lineHeight:0.92, marginTop:idx===0?0:"-0.04em", color:idx===2?"transparent":"#fff", WebkitTextStroke:idx===2?"1.5px rgba(255,255,255,0.5)":undefined }} />
         ))}
@@ -687,6 +696,164 @@ function RetouchSection({ onImgHover, onImgLeave }: HP) {
   );
 }
 
+// ─── FLYCAM ──────────────────────────────────────────────────────────────────
+const FLYFRAMES = [
+  { src: "fly3", loc: "Thung lũng sông", region: "Hà Giang", alt: "120m" },
+  { src: "fly4", loc: "Sa Pa nhìn từ trên", region: "Lào Cai", alt: "200m" },
+  { src: "fly5", loc: "Khúc quanh sông", region: "Hà Giang", alt: "95m" },
+  { src: "fly6", loc: "Ruộng bậc thang", region: "Mù Cang Chải", alt: "110m" },
+];
+
+function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, className = "", style }: {
+  src: string; loc: string; region: string; alt: string; onHover?:()=>void; onLeave?:()=>void; className?:string; style?:CSSProperties;
+}) {
+  const lb = useContext(LbCtx);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
+  const onMove = (e: RME<HTMLDivElement>) => {
+    const el = wrapRef.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX-r.left)/r.width)-.5, y = ((e.clientY-r.top)/r.height)-.5;
+    el.style.transform = `perspective(1000px) rotateY(${x*5}deg) rotateX(${-y*5}deg) scale(1.012)`;
+    el.style.transition = "transform 0.1s ease";
+  };
+  const onOut = () => {
+    setHovered(false); onLeave?.();
+    const el = wrapRef.current; if (!el) return;
+    el.style.transform = ""; el.style.transition = "transform 0.7s cubic-bezier(0.16,1,0.3,1)";
+  };
+  return (
+    <div ref={wrapRef} className={`relative overflow-hidden bg-[#111] ${className}`}
+      style={{ willChange:"transform", cursor:"none", ...style }}
+      onMouseMove={onMove}
+      onMouseEnter={e => { setHovered(true); onHover?.(); onMove(e); }}
+      onMouseLeave={onOut}
+      onClick={() => lb.open((I as Record<string, string>)[src], 0)}>
+      <img src={(I as Record<string, string>)[src]} alt={loc} className="w-full h-full object-cover block"
+        style={{ transform: hovered ? "scale(1.05)" : "scale(1)", transition: "transform 1.2s cubic-bezier(0.16,1,0.3,1)" }} />
+      {/* altitude badge */}
+      <div className="absolute top-3 right-3" style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.3s" }}>
+        <span className="font-mono text-[8px] tracking-[0.22em] uppercase px-2 py-1 bg-black/70 text-white/70">↑ {altitude}</span>
+      </div>
+      {/* location info */}
+      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-t from-black/80 to-transparent"
+        style={{ transform: hovered ? "translateY(0)" : "translateY(100%)", transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div className="font-display font-black leading-none text-white" style={{ fontSize: "clamp(14px,2vw,22px)", letterSpacing: "-0.02em" }}>{loc}</div>
+        <div className="font-mono text-[8px] tracking-[0.22em] uppercase text-white/50 mt-0.5">{region} · {altitude}</div>
+      </div>
+    </div>
+  );
+}
+
+function FlycamSection({ onImgHover, onImgLeave }: HP) {
+  return (
+    <section id="flycam" className="bg-[#050505] pt-28 pb-24">
+      {/* Heading */}
+      <div className="px-8 md:px-14 mb-14">
+        <Reveal>
+          <div className="flex items-end gap-5 mb-3">
+            <div className="w-6 h-px bg-white/20" />
+            <span className="font-mono text-[9px] tracking-[0.3em] uppercase text-white/30">Nhìn từ trên cao</span>
+          </div>
+          <ScrambleText text="FLYCAM" className="font-display font-black leading-none text-white"
+            style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88 }} />
+          <ScrambleText text="AERIAL." className="font-display font-black leading-none"
+            style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88, marginLeft:"12vw", color:"transparent", WebkitTextStroke:"1.5px rgba(255,255,255,0.18)" }} />
+        </Reveal>
+        <Reveal delay={140} className="mt-8 max-w-sm md:ml-[16vw]">
+          <p className="font-sans text-[12px] leading-relaxed text-white/35 font-light">Góc nhìn từ flycam mang lại chiều sâu mới — từ ruộng bậc thang, vịnh biển đến sự kiện ngoài trời. Độ phân giải 4K, chứng chỉ bay hợp lệ.</p>
+        </Reveal>
+      </div>
+
+      {/* Hero aerial — full width */}
+      <Reveal className="px-4 md:px-8 mb-4">
+        <div className="relative overflow-hidden" style={{ cursor:"none" }}
+          onMouseEnter={onImgHover} onMouseLeave={onImgLeave}
+          onClick={() => {}}>
+          <img src={I.fly1} alt="Vịnh Hạ Long từ trên cao" className="w-full object-cover block"
+            style={{ aspectRatio:"21/9" }} />
+          <div className="absolute bottom-5 left-6">
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>Vịnh Hạ Long</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">Quảng Ninh · ↑ 150m</div>
+          </div>
+          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">20°54&apos;N · 107°05&apos;E</div>
+        </div>
+      </Reveal>
+
+      {/* Second wide aerial */}
+      <Reveal className="px-4 md:px-8 mb-4">
+        <div className="relative overflow-hidden" style={{ cursor:"none" }}
+          onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
+          <img src={I.fly2} alt="Thung lũng Sa Pa" className="w-full object-cover block"
+            style={{ aspectRatio:"21/9" }} />
+          <div className="absolute bottom-5 left-6">
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>Thung lũng Sa Pa</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">Lào Cai · ↑ 180m</div>
+          </div>
+          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">22°20&apos;N · 103°50&apos;E</div>
+        </div>
+      </Reveal>
+
+      {/* Grid of 4 portraits */}
+      <div className="px-4 md:px-8 grid grid-cols-2 md:grid-cols-4 gap-[3px] mb-4">
+        {FLYFRAMES.map((f, i) => (
+          <Reveal key={f.src} delay={i * 80}>
+            <AerialPhoto src={f.src} loc={f.loc} region={f.region} alt={f.alt}
+              className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} />
+          </Reveal>
+        ))}
+      </div>
+
+      {/* Panoramic closer */}
+      <Reveal className="px-4 md:px-8">
+        <div className="relative overflow-hidden" style={{ cursor:"none" }}
+          onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
+          <img src={I.fly7} alt="Ruộng bậc thang Mù Cang Chải" className="w-full object-cover block"
+            style={{ aspectRatio:"21/9" }} />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <ScrambleText text="TỪ TRÊN CAO." className="font-display font-black leading-none text-white/10 text-center"
+              style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.025em" }} />
+          </div>
+          <div className="absolute bottom-5 right-6 text-right">
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>Mù Cang Chải</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">Yên Bái · ↑ 100m</div>
+          </div>
+        </div>
+      </Reveal>
+
+      {/* Karst panoramic */}
+      <Reveal className="px-4 md:px-8 mt-[3px]">
+        <div className="relative overflow-hidden" style={{ cursor:"none" }}
+          onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
+          <img src={I.fly8} alt="Vịnh đá vôi" className="w-full object-cover block"
+            style={{ aspectRatio:"21/9" }} />
+          <div className="absolute bottom-5 left-6">
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>Vịnh Bái Tử Long</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">Quảng Ninh · ↑ 130m</div>
+          </div>
+        </div>
+      </Reveal>
+
+      {/* Capabilities strip */}
+      <Reveal className="px-8 md:px-14 mt-16">
+        <div className="border-t border-white/8 pt-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {[
+            { label:"Độ phân giải", val:"4K / 12MP RAW" },
+            { label:"Độ cao bay",   val:"Tối đa 400m" },
+            { label:"Địa hình",     val:"Nội địa · Biển đảo" },
+            { label:"Chứng chỉ",    val:"Bay hợp pháp" },
+          ].map(({ label, val }) => (
+            <div key={label}>
+              <div className="font-mono text-[8px] tracking-[0.22em] uppercase text-white/25 mb-1">{label}</div>
+              <div className="font-sans text-[12px] text-white/60 font-light">{val}</div>
+            </div>
+          ))}
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 // ─── ROSIE ───────────────────────────────────────────────────────────────────
 function RosieStory({ onImgHover, onImgLeave }: HP) {
   return (
@@ -759,12 +926,13 @@ function PersonalGallery({ onImgHover, onImgLeave }: HP) {
 // ─── SERVICES LIST ────────────────────────────────────────────────────────────
 function ServicesSection() {
   const services = [
-    { num:"01", title:"Chân dung Doanh nghiệp", subtitle:"Chân dung cá nhân & lãnh đạo", previewSrc:I.h5 },
-    { num:"02", title:"Sự kiện & Hội nghị",     subtitle:"Hội nghị, gala, lễ trao giải",  previewSrc:I.e1 },
-    { num:"03", title:"Ảnh Nhân sự & Đội nhóm", subtitle:"Ảnh nhóm & nhân viên công ty",  previewSrc:I.t1 },
-    { num:"04", title:"Gói Headshot",            subtitle:"Chụp nhanh cho doanh nghiệp",   previewSrc:I.h2 },
-    { num:"05", title:"Chiến dịch Thương hiệu",  subtitle:"Ảnh thương hiệu & sản phẩm",    previewSrc:I.p2a },
-    { num:"06", title:"Editorial & Thời trang",  subtitle:"Lookbook, tạp chí, nghệ thuật",  previewSrc:I.p1a },
+    { num:"01", title:"Chân dung Doanh nghiệp", subtitle:"Chân dung cá nhân & lãnh đạo",  previewSrc:I.h5 },
+    { num:"02", title:"Sự kiện & Hội nghị",     subtitle:"Hội nghị, gala, lễ trao giải",   previewSrc:I.e1 },
+    { num:"03", title:"Ảnh Nhân sự & Đội nhóm", subtitle:"Ảnh nhóm & nhân viên công ty",   previewSrc:I.t1 },
+    { num:"04", title:"Flycam & Aerial",         subtitle:"Phong cảnh, sự kiện từ trên cao",previewSrc:I.fly1 },
+    { num:"05", title:"Gói Headshot",            subtitle:"Chụp nhanh cho doanh nghiệp",    previewSrc:I.h2 },
+    { num:"06", title:"Chiến dịch Thương hiệu",  subtitle:"Ảnh thương hiệu & sản phẩm",     previewSrc:I.p2a },
+    { num:"07", title:"Editorial & Thời trang",  subtitle:"Lookbook, tạp chí, nghệ thuật",   previewSrc:I.p1a },
   ];
   return (
     <section className="bg-[#f5f0e8] py-24 px-8 md:px-14">
@@ -793,7 +961,7 @@ function AboutSection({ onImgHover, onImgLeave }: HP) {
             <p className="font-sans text-sm leading-relaxed text-[#444] font-light">Tôi quan tâm đến con người, ánh sáng, du lịch và những khoảnh khắc thường ngày. Sẵn sàng nhận dự án editorial, thương mại và doanh nghiệp.</p>
           </div>
           <div className="mt-10 pt-8 border-t border-[#ddd] space-y-2">
-            <Lbl>Instagram — @nahn</Lbl><Lbl>hello@nahn.photo</Lbl><Lbl>Thành phố Hồ Chí Minh, Việt Nam</Lbl>
+            <Lbl>hello@nahn.photo</Lbl><Lbl>0901 234 567</Lbl><Lbl>Thành phố Hồ Chí Minh, Việt Nam</Lbl>
           </div>
         </Reveal>
       </div>
@@ -804,7 +972,7 @@ function AboutSection({ onImgHover, onImgLeave }: HP) {
 // ─── CONTACT ─────────────────────────────────────────────────────────────────
 function ContactSection({ onImgHover, onImgLeave }: HP) {
   return (
-    <section className="bg-[#0a0a0a] py-24 md:py-32 px-8 md:px-14">
+    <section id="contact" className="bg-[#0a0a0a] py-24 md:py-32 px-8 md:px-14">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr] gap-10 md:gap-16 items-start">
         <Reveal className="flex flex-col justify-between h-full">
           <div>
@@ -813,7 +981,7 @@ function ContactSection({ onImgHover, onImgLeave }: HP) {
             ))}
           </div>
           <div className="mt-16 md:mt-20 space-y-5 border-t border-white/10 pt-8">
-            {[{label:"Instagram",val:"@nahn",href:"https://instagram.com/nahn"},{label:"Email",val:"hello@nahn.photo",href:"mailto:hello@nahn.photo"}].map(({ label,val,href })=>(
+            {[{label:"Email",val:"hello@nahn.photo",href:"mailto:hello@nahn.photo"},{label:"Điện thoại",val:"0901 234 567",href:"tel:+84901234567"}].map(({ label,val,href })=>(
               <div key={label}><Lbl light>{label}</Lbl><a href={href} className="font-sans text-sm text-white/60 hover:text-white transition-colors duration-300">{val}</a></div>
             ))}
             <div><Lbl light>Địa chỉ</Lbl><span className="font-sans text-sm text-white/60">Thành phố Hồ Chí Minh</span></div>
@@ -835,8 +1003,8 @@ function Footer() {
           <div className="font-mono text-[9px] tracking-[0.22em] uppercase text-white/30 mt-1">Nhiếp ảnh · Tp. Hồ Chí Minh</div>
         </div>
         <div className="flex items-center gap-8">
-          <MagneticLink href="https://instagram.com/nahn" color="rgba(255,255,255,0.4)">Instagram</MagneticLink>
           <MagneticLink href="mailto:hello@nahn.photo" color="rgba(255,255,255,0.4)">Email</MagneticLink>
+          <MagneticLink href="tel:+84901234567" color="rgba(255,255,255,0.4)">0901 234 567</MagneticLink>
           <button onClick={() => window.scrollTo({ top:0, behavior:"smooth" })} className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/40 hover:text-white/80 transition-colors duration-200">Về đầu trang ↑</button>
         </div>
         <div className="font-mono text-[9px] tracking-[0.18em] text-white/25">NAHN © 2026</div>
@@ -869,6 +1037,7 @@ export default function App() {
         <SelectedWork {...hp} />
         <StatementSection />
         <FilmStrip {...hp} onDragChange={setDragging} />
+        <FlycamSection {...hp} />
         <CorporateSection {...hp} />
         <RetouchSection {...hp} />
         <RosieStory {...hp} />
