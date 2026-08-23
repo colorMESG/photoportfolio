@@ -25,6 +25,7 @@ import {
   TextInput,
   Toggle,
 } from "../components/Form";
+import ImageManager from "../components/ImageManager";
 import { PageHeader } from "../components/PageHeader";
 
 /** Empty strings from a form become NULL rather than '' in the database. */
@@ -319,13 +320,17 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
           {saved && <span className="text-sm text-emerald-400">Saved.</span>}
         </div>
 
-        {!isNew && (
-          <p className="text-xs text-neutral-600">
-            Photograph upload, ordering and focal points arrive in the next
-            phases and will appear on this screen.
-          </p>
-        )}
       </form>
+
+      {!isNew && id && (
+        <ImageManager
+          projectId={id}
+          slug={draft.slug}
+          kind={kind}
+          coverImageId={draft.cover_image_id}
+          onCoverChange={(coverId) => patch("cover_image_id", coverId)}
+        />
+      )}
     </>
   );
 }

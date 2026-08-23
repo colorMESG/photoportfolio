@@ -26,12 +26,14 @@ export function Field({
 export function TextInput({
   value,
   onChange,
+  onBlur,
   placeholder,
   disabled,
   required,
 }: {
   value: string;
   onChange: (v: string) => void;
+  onBlur?: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
@@ -44,6 +46,7 @@ export function TextInput({
       disabled={disabled}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={(e) => onBlur?.(e.target.value)}
       className={inputClass}
     />
   );
