@@ -4,15 +4,9 @@ import RequireAdmin from "./auth/RequireAdmin";
 import AdminShell from "./components/AdminShell";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
-import {
-  ContentPage,
-  CorporatePage,
-  FlycamPage,
-  GalleryPage,
-  NotFoundPage,
-  ProjectsPage,
-  SettingsPage,
-} from "./pages/StubPages";
+import ProjectEditorPage from "./pages/ProjectEditorPage";
+import ProjectsListPage from "./pages/ProjectsListPage";
+import { ContentPage, GalleryPage, NotFoundPage, SettingsPage } from "./pages/StubPages";
 
 /**
  * Entry point for everything under /admin.
@@ -31,9 +25,22 @@ export default function AdminApp() {
           <Route element={<RequireAdmin />}>
             <Route element={<AdminShell />}>
               <Route index element={<DashboardPage />} />
-              <Route path="projects" element={<ProjectsPage />} />
-              <Route path="flycam" element={<FlycamPage />} />
-              <Route path="corporate" element={<CorporatePage />} />
+
+              {/* The three kinds share one table, so they share one pair of
+                  screens; only the `kind` differs. */}
+              <Route path="projects">
+                <Route index element={<ProjectsListPage kind="photography" />} />
+                <Route path=":id" element={<ProjectEditorPage kind="photography" />} />
+              </Route>
+              <Route path="flycam">
+                <Route index element={<ProjectsListPage kind="flycam" />} />
+                <Route path=":id" element={<ProjectEditorPage kind="flycam" />} />
+              </Route>
+              <Route path="corporate">
+                <Route index element={<ProjectsListPage kind="corporate" />} />
+                <Route path=":id" element={<ProjectEditorPage kind="corporate" />} />
+              </Route>
+
               <Route path="gallery" element={<GalleryPage />} />
               <Route path="content" element={<ContentPage />} />
               <Route path="settings" element={<SettingsPage />} />

@@ -5,39 +5,6 @@ import { ComingNext, PageHeader } from "../components/PageHeader";
  * so navigation, guards and layout can be verified before the CRUD lands.
  */
 
-export function ProjectsPage() {
-  return (
-    <>
-      <PageHeader
-        title="Projects"
-        description="Editorial photography series shown under Selected Works."
-      />
-      <ComingNext what="Project list, create/edit forms, publishing and reordering arrive in phase 6." />
-    </>
-  );
-}
-
-export function FlycamPage() {
-  return (
-    <>
-      <PageHeader title="Flycam" description="Aerial work, with coordinates and altitude." />
-      <ComingNext what="Shares the projects table and editor; enabled once project CRUD is in place." />
-    </>
-  );
-}
-
-export function CorporatePage() {
-  return (
-    <>
-      <PageHeader
-        title="Corporate"
-        description="Headshots, events and team photography."
-      />
-      <ComingNext what="Shares the projects table and editor, filtered to the corporate categories." />
-    </>
-  );
-}
-
 export function GalleryPage() {
   return (
     <>
