@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthProvider";
 import RequireAdmin from "./auth/RequireAdmin";
 import AdminShell from "./components/AdminShell";
@@ -7,7 +7,9 @@ import LoginPage from "./pages/LoginPage";
 import GalleryPage from "./pages/GalleryPage";
 import ProjectEditorPage from "./pages/ProjectEditorPage";
 import ProjectsListPage from "./pages/ProjectsListPage";
-import { ContentPage, NotFoundPage, SettingsPage } from "./pages/StubPages";
+import ContentPage from "./pages/ContentPage";
+import { NotFoundPage } from "./pages/StubPages";
+import SettingsPage from "./pages/SettingsPage";
 
 /**
  * Entry point for everything under /admin.
@@ -43,7 +45,8 @@ export default function AdminApp() {
               </Route>
 
               <Route path="gallery" element={<GalleryPage />} />
-              <Route path="content" element={<ContentPage />} />
+              <Route path="about" element={<ContentPage />} />
+              <Route path="content" element={<Navigate to="/about" replace />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

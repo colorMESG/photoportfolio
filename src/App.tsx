@@ -20,9 +20,9 @@ import {
   portraitStudy, rosieNumerals, rosieProject, selectedWorksHeading, veilStudy,
 } from "./content/projects";
 import {
-  aboutContent, contactContent, exifPresets, footerContent, heroContent, marqueeItems,
-  servicesContent, siteSettings, statementContent, uiLabels,
+  exifPresets, servicesContent, uiLabels,
 } from "./content/site";
+import { SiteCopyProvider, useSiteCopy } from "./lib/content/SiteCopyProvider";
 
 type HP = { onImgHover: () => void; onImgLeave: () => void };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -290,7 +290,8 @@ function StatCounter({ target, suffix="+", label }: { target:number; suffix?:str
 
 // ─── MARQUEE ─────────────────────────────────────────────────────────────────
 function Marquee() {
-  const text = marqueeItems.map(s => `${s}  ·  `).join("");
+  const { marquee } = useSiteCopy();
+  const text = marquee.map(s => `${s}  ·  `).join("");
   return (
     <>
       <style>{`@keyframes mq{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
@@ -406,6 +407,7 @@ function Lbl({ children, light=false }: { children:ReactNode; light?:boolean }) 
 
 // ─── HEADER ──────────────────────────────────────────────────────────────────
 function Header() {
+  const { settings } = useSiteCopy();
   const [sc, setSc] = useState(false);
   useEffect(() => { const h = () => setSc(window.scrollY > 70); window.addEventListener("scroll", h, { passive:true }); return () => window.removeEventListener("scroll", h); }, []);
   const fg = sc ? "#0a0a0a" : "#fff";
@@ -413,11 +415,11 @@ function Header() {
     <header className="fixed top-0 left-0 right-0 z-40 px-8 md:px-14 py-5 flex items-center justify-between"
       style={{ backgroundColor:sc?"rgba(245,240,232,0.96)":"transparent", backdropFilter:sc?"blur(10px)":"none", transition:"background-color 0.5s ease" }}>
       <div>
-        <div className="font-display font-black text-sm tracking-widest leading-none" style={{ color:fg }}>{siteSettings.name}</div>
-        <div className="font-mono text-[9px] tracking-[0.22em] uppercase mt-0.5" style={{ color:sc?"#aaa":"rgba(255,255,255,0.4)" }}>{siteSettings.tagline}</div>
+        <div className="font-display font-black text-sm tracking-widest leading-none" style={{ color:fg }}>{settings.name}</div>
+        <div className="font-mono text-[9px] tracking-[0.22em] uppercase mt-0.5" style={{ color:sc?"#aaa":"rgba(255,255,255,0.4)" }}>{settings.tagline}</div>
       </div>
       <nav className="flex items-center gap-7 md:gap-10">
-        {siteSettings.nav.map(({label,href}) => (
+        {settings.nav.map(({label,href}) => (
           <MagneticLink key={label} href={href} color={fg}>{label}</MagneticLink>
         ))}
       </nav>
@@ -427,26 +429,27 @@ function Header() {
 
 // ─── HERO ────────────────────────────────────────────────────────────────────
 function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
+  const { hero } = useSiteCopy();
   const [mx, setMx] = useState(0); const [my, setMy] = useState(0);
   useEffect(() => { const h = (e: MouseEvent) => { setMx(((e.clientX/window.innerWidth)-.5)*-18); setMy(((e.clientY/window.innerHeight)-.5)*-12); }; window.addEventListener("mousemove", h); return () => window.removeEventListener("mousemove", h); }, []);
   return (
     <section className="relative h-screen overflow-hidden bg-[#0a0a0a]">
       <div className="absolute inset-[-4%]" style={{ transform:`translateX(${mx}px) translateY(calc(${scrollY*.28}px + ${my}px))`, transition:"transform 0.08s linear", willChange:"transform" }} onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
-        <img src={heroContent.image.src} alt={heroContent.image.alt} className="w-full h-full object-cover" />
+        <img src={hero.image.src} alt={hero.image.alt} className="w-full h-full object-cover" />
       </div>
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/10" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
       <div className="absolute inset-0 flex flex-col justify-center overflow-visible pointer-events-none" style={{ paddingLeft:"5vw" }}>
-        {heroContent.words.map((word, idx) => (
+        {hero.words.map((word, idx) => (
           <ScrambleText key={word} text={word} className="font-display font-black leading-none pointer-events-auto"
             style={{ fontSize:"clamp(64px,18vw,290px)", letterSpacing:"-0.03em", lineHeight:0.92, marginTop:idx===0?0:"-0.04em", color:idx===2?"transparent":"#fff", WebkitTextStroke:idx===2?"1.5px rgba(255,255,255,0.5)":undefined }} />
         ))}
       </div>
       <div className="absolute bottom-28 right-10 text-right space-y-1 hidden md:block">
-        {heroContent.meta.map(m => <Lbl key={m} light>{m}</Lbl>)}
+        {hero.meta.map(m => <Lbl key={m} light>{m}</Lbl>)}
       </div>
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-        <Lbl light>{heroContent.scrollLabel}</Lbl>
+        <Lbl light>{hero.scrollLabel}</Lbl>
         <div className="relative w-px h-12 overflow-hidden bg-white/20"><div className="absolute w-full bg-white/70" style={{ height:"40%", animation:"scrollDrop 1.8s ease-in-out infinite" }} /></div>
       </div>
       <style>{`@keyframes scrollDrop{0%{transform:translateY(-100%)}100%{transform:translateY(300%)}}`}</style>
@@ -509,17 +512,18 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
 
 // ─── STATEMENT ───────────────────────────────────────────────────────────────
 function StatementSection() {
+  const { statement } = useSiteCopy();
   return (
     <section className="bg-white py-28 md:py-40 px-8 md:px-20">
       <Reveal>
         <div className="font-display font-black leading-none" style={{ fontSize:"clamp(42px,9vw,148px)", letterSpacing:"-0.025em", lineHeight:0.88 }}>
-          {statementContent.lines.map((line,i) => (
+          {statement.lines.map((line,i) => (
             <ScrambleText key={line} text={line} className="block" style={{ marginLeft:[0,"12vw",0,"6vw",0,"16vw",0][i]??0 }} />
           ))}
         </div>
       </Reveal>
       <Reveal delay={200} className="mt-16 max-w-sm md:ml-[20vw]">
-        <p className="font-sans text-[13px] leading-relaxed text-[#555] font-light">{statementContent.paragraph}</p>
+        <p className="font-sans text-[13px] leading-relaxed text-[#555] font-light">{statement.paragraph}</p>
       </Reveal>
     </section>
   );
@@ -865,20 +869,21 @@ function ServicesSection() {
 
 // ─── ABOUT ───────────────────────────────────────────────────────────────────
 function AboutSection({ onImgHover, onImgLeave }: HP) {
+  const { about } = useSiteCopy();
   return (
     <section id="about" className="bg-white py-24 md:py-32 px-8 md:px-14">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-10 md:gap-16 items-start">
-        <Reveal><Photo src={aboutContent.image.src} alt={aboutContent.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={aboutContent.image.exifIdx} /></Reveal>
+        <Reveal><Photo src={about.image.src} alt={about.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={about.image.exifIdx} /></Reveal>
         <Reveal delay={150} className="flex flex-col justify-end md:pb-10">
-          <ScrambleText text={aboutContent.headings[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
-          <ScrambleText text={aboutContent.headings[1]} className="font-display font-black leading-none mt-1" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88, color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} />
+          <ScrambleText text={about.headings[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
+          <ScrambleText text={about.headings[1]} className="font-display font-black leading-none mt-1" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88, color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} />
           <div className="mt-10 space-y-4">
-            {aboutContent.paragraphs.map(p => (
+            {about.paragraphs.map(p => (
               <p key={p} className="font-sans text-sm leading-relaxed text-[#444] font-light">{p}</p>
             ))}
           </div>
           <div className="mt-10 pt-8 border-t border-[#ddd] space-y-2">
-            {aboutContent.details.map(d => <Lbl key={d}>{d}</Lbl>)}
+            {about.details.map(d => <Lbl key={d}>{d}</Lbl>)}
           </div>
         </Reveal>
       </div>
@@ -888,23 +893,24 @@ function AboutSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── CONTACT ─────────────────────────────────────────────────────────────────
 function ContactSection({ onImgHover, onImgLeave }: HP) {
+  const { contact } = useSiteCopy();
   return (
     <section id="contact" className="bg-[#0a0a0a] py-24 md:py-32 px-8 md:px-14">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr] gap-10 md:gap-16 items-start">
         <Reveal className="flex flex-col justify-between h-full">
           <div>
-            {contactContent.words.map((w,i) => (
+            {contact.words.map((w,i) => (
               <ScrambleText key={w} text={w} className="font-display font-black leading-none" style={{ fontSize:"clamp(58px,10vw,160px)", letterSpacing:"-0.025em", lineHeight:0.86, color:i<2?"#fff":"transparent", WebkitTextStroke:i>=2?"1.5px rgba(255,255,255,0.4)":undefined }} />
             ))}
           </div>
           <div className="mt-16 md:mt-20 space-y-5 border-t border-white/10 pt-8">
-            {contactContent.links.map(({ label,val,href })=>(
+            {contact.links.map(({ label,val,href })=>(
               <div key={label}><Lbl light>{label}</Lbl><a href={href} className="font-sans text-sm text-white/60 hover:text-white transition-colors duration-300">{val}</a></div>
             ))}
-            <div><Lbl light>{contactContent.addressLabel}</Lbl><span className="font-sans text-sm text-white/60">{contactContent.address}</span></div>
+            <div><Lbl light>{contact.addressLabel}</Lbl><span className="font-sans text-sm text-white/60">{contact.address}</span></div>
           </div>
         </Reveal>
-        <Reveal delay={160}><Photo src={contactContent.image.src} alt={contactContent.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={contactContent.image.exifIdx} /></Reveal>
+        <Reveal delay={160}><Photo src={contact.image.src} alt={contact.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={contact.image.exifIdx} /></Reveal>
       </div>
     </section>
   );
@@ -912,20 +918,21 @@ function ContactSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── FOOTER ──────────────────────────────────────────────────────────────────
 function Footer() {
+  const { settings, footer } = useSiteCopy();
   return (
     <footer className="bg-[#0a0a0a] border-t border-white/8 px-8 md:px-14 py-10">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
-          <div className="font-display font-black text-white text-sm tracking-widest">{siteSettings.name}</div>
-          <div className="font-mono text-[9px] tracking-[0.22em] uppercase text-white/30 mt-1">{footerContent.tagline}</div>
+          <div className="font-display font-black text-white text-sm tracking-widest">{settings.name}</div>
+          <div className="font-mono text-[9px] tracking-[0.22em] uppercase text-white/30 mt-1">{footer.tagline}</div>
         </div>
         <div className="flex items-center gap-8">
-          {footerContent.links.map(({ label, href }) => (
+          {footer.links.map(({ label, href }) => (
             <MagneticLink key={label} href={href} color="rgba(255,255,255,0.4)">{label}</MagneticLink>
           ))}
-          <button onClick={() => window.scrollTo({ top:0, behavior:"smooth" })} className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/40 hover:text-white/80 transition-colors duration-200">{footerContent.backToTop}</button>
+          <button onClick={() => window.scrollTo({ top:0, behavior:"smooth" })} className="font-mono text-[10px] tracking-[0.18em] uppercase text-white/40 hover:text-white/80 transition-colors duration-200">{footer.backToTop}</button>
         </div>
-        <div className="font-mono text-[9px] tracking-[0.18em] text-white/25">{footerContent.copyright}</div>
+        <div className="font-mono text-[9px] tracking-[0.18em] text-white/25">{footer.copyright}</div>
       </div>
     </footer>
   );
@@ -933,6 +940,14 @@ function Footer() {
 
 // ─── APP ─────────────────────────────────────────────────────────────────────
 export default function App() {
+  return (
+    <SiteCopyProvider>
+      <Portfolio />
+    </SiteCopyProvider>
+  );
+}
+
+function Portfolio() {
   const [imgHover, setImgHover] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [scrollY, setScrollY]   = useState(0);

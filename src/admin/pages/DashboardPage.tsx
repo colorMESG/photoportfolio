@@ -70,10 +70,11 @@ export default function DashboardPage() {
       )}
 
       <p className="mt-8 max-w-prose text-sm leading-relaxed text-neutral-500">
-        The public site still renders from the static content in{" "}
-        <code className="text-neutral-400">src/content/</code>. It switches over
-        to this database once the content types are migrated, and falls back to
-        static content whenever Supabase cannot be reached.
+        Page copy and site settings resolve as{" "}
+        <code className="text-neutral-400">Supabase managed value → static fallback</code>.
+        Photographs still render from{" "}
+        <code className="text-neutral-400">src/content/</code> until they are
+        replaced with managed uploads.
       </p>
     </>
   );
