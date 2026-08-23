@@ -7,10 +7,12 @@ import {
 } from "../../lib/content/staticCatalog";
 import { listImagesForProjects } from "../../lib/db/images";
 import { deleteProject, listProjects, setPublished } from "../../lib/db/projects";
+import { reorderProjects } from "../../lib/db/reorder";
 import type { ProjectImageRow, ProjectKind, ProjectRow } from "../../lib/db/types";
 import { imageUrl } from "../../lib/images";
 import { Badge, Button, ErrorNote } from "../components/Form";
 import { PageHeader } from "../components/PageHeader";
+import { DragHandle, SortableList, type HandleProps } from "../components/SortableList";
 import { SourceBadge, Thumb } from "../components/Thumb";
 
 const COPY: Record<ProjectKind, { title: string; description: string; empty: string }> = {
@@ -132,18 +134,39 @@ export default function ProjectsListPage({ kind }: { kind: ProjectKind }) {
           <p className="text-sm text-neutral-400">{copy.empty}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-neutral-800 border border-neutral-800">
-          {rows.map((row) => (
-            <ProjectRow
-              key={row.id}
-              row={row}
-              managed={imagesByProject.get(row.id) ?? []}
-              busy={busyId === row.id}
-              onPublish={() => void togglePublished(row)}
-              onDelete={() => void remove(row)}
-            />
-          ))}
-        </ul>
+        <>
+          <p className="mb-3 text-xs text-neutral-600">
+            Drag the handle to reorder. Visible labels such as 01 do not change.
+          </p>
+          <SortableList
+            items={rows}
+            getId={(row) => row.id}
+            disabled={rows.length < 2}
+            className="divide-y divide-neutral-800 border border-neutral-800"
+            onError={setError}
+            onCommit={async (ids) => {
+              const { error: err } = await reorderProjects(kind, ids);
+              if (err) return err;
+              setRows((current) => {
+                if (!current) return current;
+                const byId = new Map(current.map((row) => [row.id, row]));
+                return ids.map((id) => byId.get(id)).filter((row): row is ProjectRow => Boolean(row));
+              });
+              return null;
+            }}
+            renderItem={(row, { handleProps, dragging }) => (
+              <ProjectRow
+                row={row}
+                handleProps={handleProps}
+                dragging={dragging}
+                managed={imagesByProject.get(row.id) ?? []}
+                busy={busyId === row.id}
+                onPublish={() => void togglePublished(row)}
+                onDelete={() => void remove(row)}
+              />
+            )}
+          />
+        </>
       )}
     </>
   );
@@ -151,12 +174,16 @@ export default function ProjectsListPage({ kind }: { kind: ProjectKind }) {
 
 function ProjectRow({
   row,
+  handleProps,
+  dragging,
   managed,
   busy,
   onPublish,
   onDelete,
 }: {
   row: ProjectRow;
+  handleProps: HandleProps;
+  dragging: boolean;
   managed: ProjectImageRow[];
   busy: boolean;
   onPublish: () => void;
@@ -175,7 +202,14 @@ function ProjectRow({
   const countLabel = `${photoCount} photograph${photoCount === 1 ? "" : "s"}`;
 
   return (
-    <li className="group flex items-center gap-4 px-3 py-2.5 transition-colors hover:bg-neutral-900/70">
+    <div
+      className={`group flex items-center gap-2 px-2 py-2.5 transition-colors sm:gap-4 sm:px-3 ${
+        dragging
+          ? "bg-neutral-800/80 ring-1 ring-neutral-500 ring-inset"
+          : "hover:bg-neutral-900/70"
+      }`}
+    >
+      <DragHandle {...handleProps} />
       <Link to={row.id} className="shrink-0" tabIndex={-1}>
         <Thumb
           src={coverSrc}
@@ -234,7 +268,7 @@ function ProjectRow({
           Delete
         </Button>
       </div>
-    </li>
+    </div>
   );
 }
 

@@ -17,7 +17,9 @@ import {
   validateImageFile,
 } from "../../lib/images";
 import { deleteStoredObject, uploadOriginal } from "../../lib/storage";
+import { reorderProjectImages } from "../../lib/db/reorder";
 import { Button, ErrorNote, TextInput, Toggle } from "./Form";
+import { DragHandle, SortableList } from "./SortableList";
 import { SourceBadge, Thumb } from "./Thumb";
 
 export interface ImageManagerHandle {
@@ -48,7 +50,7 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
   const [inflight, setInflight] = useState<InFlight[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [fileOver, setFileOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrls = useRef<string[]>([]);
 
@@ -209,8 +211,9 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
         <h2 className="text-xl font-medium text-neutral-100">Managed photographs</h2>
         <p className="text-sm text-neutral-500">
           Uploads stored in Supabase. These are the photographs that will replace
-          the static placeholders. JPEG, PNG, WebP or AVIF, up to 50 MB. Originals
-          are not compressed.
+          the static placeholders. Drag the handle to reorder — cover and featured
+          stay put. JPEG, PNG, WebP or AVIF, up to 50 MB. Originals are not
+          compressed.
         </p>
       </header>
 
@@ -219,16 +222,16 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
       <div
         onDragOver={(event) => {
           event.preventDefault();
-          setDragging(true);
+          setFileOver(true);
         }}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={() => setFileOver(false)}
         onDrop={(event) => {
           event.preventDefault();
-          setDragging(false);
+          setFileOver(false);
           void handleFiles(event.dataTransfer.files);
         }}
         className={`border border-dashed px-5 py-8 text-center transition-colors ${
-          dragging
+          fileOver
             ? "border-neutral-500 bg-neutral-900/60"
             : "border-neutral-800 bg-neutral-900/20"
         }`}
@@ -254,11 +257,11 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
       </div>
 
       {(inflight.length > 0 || images.length > 0) && (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {inflight.map((item) => (
-            <li
+            <div
               key={item.key}
-              className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/40"
+              className="overflow-hidden border border-neutral-800 bg-neutral-900/40"
             >
               <div className="aspect-[4/5] bg-neutral-900">
                 <img src={item.preview} alt="" className="size-full object-cover" />
@@ -277,110 +280,137 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
                   <p className="text-xs text-neutral-500">{item.percent}%</p>
                 )}
               </div>
-            </li>
+            </div>
           ))}
 
-          {images.map((row, index) => {
-            const src = imageUrl(row.storage_path, row.external_url);
-            const isCover = coverImageId === row.id;
-            return (
-              <li
-                key={row.id}
-                className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/40"
-              >
-                <div className="relative aspect-[4/5] bg-neutral-900">
-                  <Thumb
-                    src={src}
-                    alt={row.alt}
-                    width={480}
-                    height={600}
-                    className="size-full"
-                    eager={index < 2}
-                    objectPosition={objectPosition(row.focal_point_x, row.focal_point_y)}
-                  />
-                  <div className="absolute inset-x-0 top-0 flex items-start justify-between p-1.5">
-                    {isCover ? (
-                      <span className="bg-neutral-950/80 px-1.5 py-0.5 text-[10px] tracking-wide text-neutral-100 uppercase">
-                        Cover
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    <SourceBadge source="supabase" />
+          {images.length > 0 && (
+            <SortableList
+              items={images}
+              getId={(row) => row.id}
+              disabled={images.length < 2}
+              className="contents"
+              onError={setError}
+              onCommit={async (ids) => {
+                const { error: err } = await reorderProjectImages(projectId, ids);
+                if (err) return err;
+                setImages((current) => {
+                  const byId = new Map(current.map((row) => [row.id, row]));
+                  return ids
+                    .map((id) => byId.get(id))
+                    .filter((row): row is ProjectImageRow => Boolean(row));
+                });
+                return null;
+              }}
+              renderItem={(row, { handleProps, dragging, index }) => {
+                const src = imageUrl(row.storage_path, row.external_url);
+                const isCover = coverImageId === row.id;
+                return (
+                  <div
+                    className={`overflow-hidden border bg-neutral-900/40 ${
+                      dragging
+                        ? "border-neutral-500 ring-1 ring-neutral-400"
+                        : "border-neutral-800"
+                    }`}
+                  >
+                    <div className="relative aspect-[4/5] bg-neutral-900">
+                      <Thumb
+                        src={src}
+                        alt={row.alt}
+                        width={480}
+                        height={600}
+                        className="size-full"
+                        eager={index < 2}
+                        objectPosition={objectPosition(row.focal_point_x, row.focal_point_y)}
+                      />
+                      <div className="absolute inset-x-0 top-0 flex items-start justify-between p-1.5">
+                        <span className="bg-neutral-950/80 px-1.5 py-0.5 font-mono text-[10px] text-neutral-200">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <SourceBadge source="supabase" />
+                      </div>
+                      {isCover && (
+                        <span className="absolute bottom-1.5 left-1.5 bg-neutral-950/80 px-1.5 py-0.5 text-[10px] tracking-wide text-neutral-100 uppercase">
+                          Cover
+                        </span>
+                      )}
+                      <div className="absolute bottom-1.5 right-1.5 rounded-sm bg-neutral-950/70">
+                        <DragHandle {...handleProps} />
+                      </div>
+                    </div>
+                    <div className="space-y-3 p-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs tracking-wide text-neutral-500 uppercase">
+                          Alt text
+                        </span>
+                        <TextInput
+                          value={row.alt}
+                          onChange={(value) =>
+                            setImages((current) =>
+                              current.map((item) =>
+                                item.id === row.id ? { ...item, alt: value } : item
+                              )
+                            )
+                          }
+                          onBlur={(value) => void savePatch(row.id, { alt: value })}
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-xs tracking-wide text-neutral-500 uppercase">
+                          Caption
+                        </span>
+                        <TextInput
+                          value={row.caption ?? ""}
+                          onChange={(value) =>
+                            setImages((current) =>
+                              current.map((item) =>
+                                item.id === row.id ? { ...item, caption: value } : item
+                              )
+                            )
+                          }
+                          onBlur={(value) =>
+                            void savePatch(row.id, {
+                              caption: value.trim() ? value : null,
+                            })
+                          }
+                        />
+                      </label>
+                      <p className="text-xs text-neutral-600">
+                        {row.width && row.height ? `${row.width} × ${row.height}` : "Original"}
+                      </p>
+                      <Toggle
+                        checked={row.featured}
+                        onChange={(value) => {
+                          setImages((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, featured: value } : item
+                            )
+                          );
+                          void savePatch(row.id, { featured: value });
+                        }}
+                        label="Featured"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={isCover || busyId === row.id}
+                          onClick={() => void setCover(row.id)}
+                        >
+                          {isCover ? "Cover photo" : "Use as cover"}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          disabled={busyId === row.id}
+                          onClick={() => void remove(row)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-3 p-3">
-                  <label className="block space-y-1">
-                    <span className="text-xs tracking-wide text-neutral-500 uppercase">
-                      Alt text
-                    </span>
-                    <TextInput
-                      value={row.alt}
-                      onChange={(value) =>
-                        setImages((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, alt: value } : item
-                          )
-                        )
-                      }
-                      onBlur={(value) => void savePatch(row.id, { alt: value })}
-                    />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="text-xs tracking-wide text-neutral-500 uppercase">
-                      Caption
-                    </span>
-                    <TextInput
-                      value={row.caption ?? ""}
-                      onChange={(value) =>
-                        setImages((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, caption: value } : item
-                          )
-                        )
-                      }
-                      onBlur={(value) =>
-                        void savePatch(row.id, {
-                          caption: value.trim() ? value : null,
-                        })
-                      }
-                    />
-                  </label>
-                  <p className="text-xs text-neutral-600">
-                    {row.width && row.height ? `${row.width} × ${row.height}` : "Original"}
-                  </p>
-                  <Toggle
-                    checked={row.featured}
-                    onChange={(value) => {
-                      setImages((current) =>
-                        current.map((item) =>
-                          item.id === row.id ? { ...item, featured: value } : item
-                        )
-                      );
-                      void savePatch(row.id, { featured: value });
-                    }}
-                    label="Featured"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      disabled={isCover || busyId === row.id}
-                      onClick={() => void setCover(row.id)}
-                    >
-                      {isCover ? "Cover photo" : "Use as cover"}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      disabled={busyId === row.id}
-                      onClick={() => void remove(row)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                );
+              }}
+            />
+          )}
+        </div>
       )}
     </section>
   );

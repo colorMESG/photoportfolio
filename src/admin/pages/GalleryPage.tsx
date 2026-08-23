@@ -43,8 +43,9 @@ export default function GalleryPage() {
         <h2 className="text-sm font-medium text-neutral-200">Managed photographs</h2>
         <p className="text-sm text-neutral-500">No managed photographs yet.</p>
         <p className="text-xs text-neutral-600">
-          Gallery upload will use the same Supabase image model as projects.
-          These static plates stay as the public fallback until then.
+          Static plates stay read-only. When gallery uploads exist they will use
+          the same drag handle and <code>reorder_gallery_images</code> helper as
+          project photographs — nothing here is written to Supabase today.
         </p>
       </section>
     </>
