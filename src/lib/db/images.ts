@@ -64,6 +64,18 @@ export async function deleteProjectImage(id: string): Promise<Result<true>> {
   return { data: error ? null : true, error: error ? describe(error) : null };
 }
 
+export async function listImagesForProjects(
+  projectIds: string[]
+): Promise<Result<ProjectImageRow[]>> {
+  if (projectIds.length === 0) return { data: [], error: null };
+  const { data, error } = await requireSupabase()
+    .from("project_images")
+    .select("*")
+    .in("project_id", projectIds)
+    .order("sort_order", { ascending: true });
+  return { data: (data as ProjectImageRow[]) ?? null, error: error ? describe(error) : null };
+}
+
 export async function nextImageSortOrder(projectId: string): Promise<number> {
   const { data } = await requireSupabase()
     .from("project_images")

@@ -80,6 +80,49 @@ export function imageUrl(storagePath: string | null, externalUrl?: string | null
   return `${base}/storage/v1/object/public/${PORTFOLIO_BUCKET}/${storagePath}`;
 }
 
+/**
+ * A smaller URL for admin thumbnails. Unsplash placeholders keep their existing
+ * web-sized query params, just reduced. Supabase originals go through image
+ * transformation when the project has it enabled; the <Thumb> component falls
+ * back to the original if that endpoint is unavailable.
+ */
+export function previewUrl(
+  src: string,
+  size: { width: number; height: number } = { width: 320, height: 400 }
+): string {
+  if (!src) return "";
+  if (src.startsWith("blob:") || src.startsWith("data:")) return src;
+
+  if (src.includes("images.unsplash.com")) {
+    try {
+      const url = new URL(src);
+      url.searchParams.set("w", String(size.width));
+      url.searchParams.set("h", String(size.height));
+      url.searchParams.set("fit", "crop");
+      url.searchParams.set("auto", "format");
+      return url.toString();
+    } catch {
+      return src;
+    }
+  }
+
+  const objectMarker = `/storage/v1/object/public/${PORTFOLIO_BUCKET}/`;
+  const renderMarker = `/storage/v1/render/image/public/${PORTFOLIO_BUCKET}/`;
+  if (src.includes(objectMarker)) {
+    const rendered = src.replace(objectMarker, renderMarker);
+    const join = rendered.includes("?") ? "&" : "?";
+    return `${rendered}${join}width=${size.width}&height=${size.height}&resize=cover`;
+  }
+  if (src.includes(renderMarker)) return src;
+
+  if (!/^https?:\/\//i.test(src)) {
+    const base = supabaseUrl.replace(/\/$/, "");
+    return `${base}/storage/v1/render/image/public/${PORTFOLIO_BUCKET}/${src}?width=${size.width}&height=${size.height}&resize=cover`;
+  }
+
+  return src;
+}
+
 export function objectPosition(focalX?: number | null, focalY?: number | null): string {
   const x = clampPercent(focalX ?? 50);
   const y = clampPercent(focalY ?? 50);

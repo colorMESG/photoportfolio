@@ -1,22 +1,5 @@
 import { ComingNext, PageHeader } from "../components/PageHeader";
 
-/**
- * Placeholders for the sections built in later phases. Each is a real route now
- * so navigation, guards and layout can be verified before the CRUD lands.
- */
-
-export function GalleryPage() {
-  return (
-    <>
-      <PageHeader
-        title="Personal Gallery"
-        description="Standalone images with no parent project."
-      />
-      <ComingNext what="Upload, ordering, focal points and captions arrive with the image manager." />
-    </>
-  );
-}
-
 export function ContentPage() {
   return (
     <>

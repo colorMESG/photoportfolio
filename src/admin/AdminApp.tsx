@@ -4,9 +4,10 @@ import RequireAdmin from "./auth/RequireAdmin";
 import AdminShell from "./components/AdminShell";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import GalleryPage from "./pages/GalleryPage";
 import ProjectEditorPage from "./pages/ProjectEditorPage";
 import ProjectsListPage from "./pages/ProjectsListPage";
-import { ContentPage, GalleryPage, NotFoundPage, SettingsPage } from "./pages/StubPages";
+import { ContentPage, NotFoundPage, SettingsPage } from "./pages/StubPages";
 
 /**
  * Entry point for everything under /admin.

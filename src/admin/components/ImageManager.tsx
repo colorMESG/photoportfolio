@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   deleteProjectImage,
   insertProjectImage,
@@ -18,6 +18,11 @@ import {
 } from "../../lib/images";
 import { deleteStoredObject, uploadOriginal } from "../../lib/storage";
 import { Button, ErrorNote, TextInput, Toggle } from "./Form";
+import { SourceBadge, Thumb } from "./Thumb";
+
+export interface ImageManagerHandle {
+  openFilePicker: () => void;
+}
 
 interface Props {
   projectId: string;
@@ -35,13 +40,10 @@ interface InFlight {
   error: string | null;
 }
 
-export default function ImageManager({
-  projectId,
-  slug,
-  kind,
-  coverImageId,
-  onCoverChange,
-}: Props) {
+const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager(
+  { projectId, slug, kind, coverImageId, onCoverChange },
+  ref
+) {
   const [images, setImages] = useState<ProjectImageRow[]>([]);
   const [inflight, setInflight] = useState<InFlight[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,10 @@ export default function ImageManager({
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrls = useRef<string[]>([]);
+
+  useImperativeHandle(ref, () => ({
+    openFilePicker: () => inputRef.current?.click(),
+  }));
 
   const load = useCallback(async () => {
     const { data, error: err } = await listProjectImages(projectId);
@@ -198,12 +204,13 @@ export default function ImageManager({
   }
 
   return (
-    <section className="mt-12 max-w-4xl space-y-5">
+    <section id="managed-photographs" className="max-w-4xl space-y-5">
       <header className="space-y-1">
-        <h2 className="text-xl font-medium text-neutral-100">Photographs</h2>
+        <h2 className="text-xl font-medium text-neutral-100">Managed photographs</h2>
         <p className="text-sm text-neutral-500">
-          Originals are stored as-is. JPEG, PNG, WebP or AVIF, up to 50 MB each.
-          Drag-to-reorder and the visual focal-point picker arrive next.
+          Uploads stored in Supabase. These are the photographs that will replace
+          the static placeholders. JPEG, PNG, WebP or AVIF, up to 50 MB. Originals
+          are not compressed.
         </p>
       </header>
 
@@ -220,12 +227,15 @@ export default function ImageManager({
           setDragging(false);
           void handleFiles(event.dataTransfer.files);
         }}
-        className={`rounded-lg border border-dashed px-5 py-10 text-center transition-colors ${
+        className={`border border-dashed px-5 py-8 text-center transition-colors ${
           dragging
             ? "border-neutral-500 bg-neutral-900/60"
             : "border-neutral-800 bg-neutral-900/20"
         }`}
       >
+        {images.length === 0 && inflight.length === 0 && (
+          <p className="mb-3 text-sm text-neutral-400">No managed photographs yet.</p>
+        )}
         <p className="text-sm text-neutral-300">Drop photographs here, or</p>
         <div className="mt-3">
           <Button onClick={() => inputRef.current?.click()}>Choose files</Button>
@@ -270,7 +280,7 @@ export default function ImageManager({
             </li>
           ))}
 
-          {images.map((row) => {
+          {images.map((row, index) => {
             const src = imageUrl(row.storage_path, row.external_url);
             const isCover = coverImageId === row.id;
             return (
@@ -279,19 +289,25 @@ export default function ImageManager({
                 className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/40"
               >
                 <div className="relative aspect-[4/5] bg-neutral-900">
-                  {src && (
-                    <img
-                      src={src}
-                      alt={row.alt}
-                      className="size-full object-cover"
-                      style={{ objectPosition: objectPosition(row.focal_point_x, row.focal_point_y) }}
-                    />
-                  )}
-                  {isCover && (
-                    <span className="absolute top-2 left-2 rounded-full bg-neutral-950/80 px-2 py-0.5 text-xs text-neutral-100">
-                      Cover
-                    </span>
-                  )}
+                  <Thumb
+                    src={src}
+                    alt={row.alt}
+                    width={480}
+                    height={600}
+                    className="size-full"
+                    eager={index < 2}
+                    objectPosition={objectPosition(row.focal_point_x, row.focal_point_y)}
+                  />
+                  <div className="absolute inset-x-0 top-0 flex items-start justify-between p-1.5">
+                    {isCover ? (
+                      <span className="bg-neutral-950/80 px-1.5 py-0.5 text-[10px] tracking-wide text-neutral-100 uppercase">
+                        Cover
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <SourceBadge source="supabase" />
+                  </div>
                 </div>
                 <div className="space-y-3 p-3">
                   <label className="block space-y-1">
@@ -368,4 +384,6 @@ export default function ImageManager({
       )}
     </section>
   );
-}
+});
+
+export default ImageManager;

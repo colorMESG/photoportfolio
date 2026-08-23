@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { staticProject } from "../../lib/content/staticCatalog";
 import {
   createProject,
   deleteProject,
@@ -25,7 +26,8 @@ import {
   TextInput,
   Toggle,
 } from "../components/Form";
-import ImageManager from "../components/ImageManager";
+import { CurrentPhotographs } from "../components/CurrentPhotographs";
+import ImageManager, { type ImageManagerHandle } from "../components/ImageManager";
 import { PageHeader } from "../components/PageHeader";
 
 /** Empty strings from a form become NULL rather than '' in the database. */
@@ -42,6 +44,8 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const imagesRef = useRef<ImageManagerHandle>(null);
+  const currentPhotos = draft ? staticProject(kind, draft.slug)?.images ?? [] : [];
 
   useEffect(() => {
     let alive = true;
@@ -178,6 +182,35 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
       />
 
       {error && <div className="mb-5"><ErrorNote>{error}</ErrorNote></div>}
+
+      {!isNew && id && (
+        <div className="mb-12 space-y-10">
+          <CurrentPhotographs
+            photos={currentPhotos}
+            onUpload={() => {
+              document.getElementById("managed-photographs")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+              imagesRef.current?.openFilePicker();
+            }}
+          />
+          <ImageManager
+            ref={imagesRef}
+            projectId={id}
+            slug={draft.slug}
+            kind={kind}
+            coverImageId={draft.cover_image_id}
+            onCoverChange={(coverId) => patch("cover_image_id", coverId)}
+          />
+        </div>
+      )}
+
+      {!isNew && (
+        <h2 className="mb-6 max-w-2xl text-xl font-medium text-neutral-100">
+          Project details
+        </h2>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -321,16 +354,6 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
         </div>
 
       </form>
-
-      {!isNew && id && (
-        <ImageManager
-          projectId={id}
-          slug={draft.slug}
-          kind={kind}
-          coverImageId={draft.cover_image_id}
-          onCoverChange={(coverId) => patch("cover_image_id", coverId)}
-        />
-      )}
     </>
   );
 }
