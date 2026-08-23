@@ -18,3 +18,15 @@ body {
 ::-webkit-scrollbar {
   width: 0;
 }
+
+/* The editorial site hides scrollbars by design. The admin needs them back for
+   long forms and image lists, so restore them inside that subtree only. */
+.admin-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-root ::-webkit-scrollbar-thumb {
+  background: oklch(0.37 0 0);
+  border-radius: 5px;
+}
