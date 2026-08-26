@@ -23,6 +23,7 @@ import {
   exifPresets, servicesContent, uiLabels,
 } from "./content/site";
 import { SiteCopyProvider, useSiteCopy } from "./lib/content/SiteCopyProvider";
+import { managedObjectPosition } from "./lib/images";
 
 type HP = { onImgHover: () => void; onImgLeave: () => void };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -141,9 +142,9 @@ function Reveal({ children, delay=0, className="", style }: { children:ReactNode
 }
 
 // ─── PHOTO — editorial: B&W reveal + EXIF + tilt + lightbox ──────────────────
-function Photo({ src, alt, className="", style, onHover, onLeave, exifIdx=0 }: {
+function Photo({ src, alt, className="", style, onHover, onLeave, exifIdx=0, objectPosition }: {
   src:string; alt:string; className?:string; style?:CSSProperties;
-  onHover?:()=>void; onLeave?:()=>void; exifIdx?:number;
+  onHover?:()=>void; onLeave?:()=>void; exifIdx?:number; objectPosition?:string;
 }) {
   const lb = useContext(LbCtx);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -168,8 +169,8 @@ function Photo({ src, alt, className="", style, onHover, onLeave, exifIdx=0 }: {
     <div ref={wrapRef} className={`relative overflow-hidden bg-neutral-800 ${className}`} style={{ willChange:"transform", cursor:"none", ...style }}
       onMouseMove={onMove} onMouseEnter={e => { setHovered(true); onHover?.(); onMove(e); }} onMouseLeave={onOut}
       onClick={() => lb.open(src, exifIdx)}>
-      <img src={src} alt={alt} className="w-full h-full object-cover block" />
-      <div className="absolute inset-0" style={{ backgroundImage:`url(${src})`, backgroundSize:"cover", backgroundPosition:"center", filter:"grayscale(1) contrast(1.08)", WebkitMaskImage:mask, maskImage:mask }} />
+      <img src={src} alt={alt} className="w-full h-full object-cover block" style={objectPosition ? { objectPosition } : undefined} />
+      <div className="absolute inset-0" style={{ backgroundImage:`url(${src})`, backgroundSize:"cover", backgroundPosition:objectPosition ?? "center", filter:"grayscale(1) contrast(1.08)", WebkitMaskImage:mask, maskImage:mask }} />
       <div className="absolute bottom-0 left-0 right-0" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)", padding:"24px 14px 12px", transform:hovered?"translateY(0)":"translateY(100%)", transition:"transform 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
         <div className="font-mono text-[9px] tracking-[0.18em] text-white/50 uppercase mb-0.5">{exif.camera}</div>
         <div className="font-mono text-[9px] tracking-[0.18em] text-white/70 uppercase">{exif.lens} &nbsp;·&nbsp; {exif.exp}</div>
@@ -430,12 +431,13 @@ function Header() {
 // ─── HERO ────────────────────────────────────────────────────────────────────
 function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
   const { hero } = useSiteCopy();
+  const heroPos = managedObjectPosition(hero.image.focalPointX, hero.image.focalPointY);
   const [mx, setMx] = useState(0); const [my, setMy] = useState(0);
   useEffect(() => { const h = (e: MouseEvent) => { setMx(((e.clientX/window.innerWidth)-.5)*-18); setMy(((e.clientY/window.innerHeight)-.5)*-12); }; window.addEventListener("mousemove", h); return () => window.removeEventListener("mousemove", h); }, []);
   return (
     <section className="relative h-screen overflow-hidden bg-[#0a0a0a]">
       <div className="absolute inset-[-4%]" style={{ transform:`translateX(${mx}px) translateY(calc(${scrollY*.28}px + ${my}px))`, transition:"transform 0.08s linear", willChange:"transform" }} onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
-        <img src={hero.image.src} alt={hero.image.alt} className="w-full h-full object-cover" />
+        <img src={hero.image.src} alt={hero.image.alt} className="w-full h-full object-cover" style={heroPos ? { objectPosition: heroPos } : undefined} />
       </div>
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/10" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
@@ -873,7 +875,7 @@ function AboutSection({ onImgHover, onImgLeave }: HP) {
   return (
     <section id="about" className="bg-white py-24 md:py-32 px-8 md:px-14">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-10 md:gap-16 items-start">
-        <Reveal><Photo src={about.image.src} alt={about.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={about.image.exifIdx} /></Reveal>
+        <Reveal><Photo src={about.image.src} alt={about.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={about.image.exifIdx} objectPosition={managedObjectPosition(about.image.focalPointX, about.image.focalPointY)} /></Reveal>
         <Reveal delay={150} className="flex flex-col justify-end md:pb-10">
           <ScrambleText text={about.headings[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
           <ScrambleText text={about.headings[1]} className="font-display font-black leading-none mt-1" style={{ fontSize:"clamp(44px,8vw,130px)", letterSpacing:"-0.025em", lineHeight:0.88, color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} />
@@ -910,7 +912,7 @@ function ContactSection({ onImgHover, onImgLeave }: HP) {
             <div><Lbl light>{contact.addressLabel}</Lbl><span className="font-sans text-sm text-white/60">{contact.address}</span></div>
           </div>
         </Reveal>
-        <Reveal delay={160}><Photo src={contact.image.src} alt={contact.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={contact.image.exifIdx} /></Reveal>
+        <Reveal delay={160}><Photo src={contact.image.src} alt={contact.image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={contact.image.exifIdx} objectPosition={managedObjectPosition(contact.image.focalPointX, contact.image.focalPointY)} /></Reveal>
       </div>
     </section>
   );

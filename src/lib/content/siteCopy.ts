@@ -27,10 +27,10 @@ import type { ContentBlockRow, SiteSettingsRow } from "../db/types";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "../env";
 import { imageUrl } from "../images";
 
-export type HeroCopy = typeof heroContent;
+export type HeroCopy = Omit<typeof heroContent, "image"> & { image: ProjectImage };
 export type StatementCopy = typeof statementContent;
-export type AboutCopy = typeof aboutContent;
-export type ContactCopy = typeof contactContent;
+export type AboutCopy = Omit<typeof aboutContent, "image"> & { image: ProjectImage };
+export type ContactCopy = Omit<typeof contactContent, "image"> & { image: ProjectImage };
 export type FooterCopy = typeof footerContent;
 
 export interface SiteCopy {
@@ -50,12 +50,28 @@ export interface ManagedContent {
   blocks: Record<string, Record<string, unknown>>;
 }
 
+/** Photograph fields stored on a content_block. Focal points land in Phase 9. */
+export interface ContentImageDraft {
+  image_path: string | null;
+  image_alt: string;
+  image_width: number | null;
+  image_height: number | null;
+  focal_point_x: number;
+  focal_point_y: number;
+}
+
 export interface ContentDraft {
-  hero: { words: string[]; meta: string[]; scrollLabel: string };
+  hero: { words: string[]; meta: string[]; scrollLabel: string; image: ContentImageDraft };
   marquee: string[];
   statement: { lines: string[]; paragraph: string };
-  about: { headings: string[]; paragraphs: string[]; details: string[] };
-  contact: { words: string[]; emailLabel: string; phoneLabel: string; addressLabel: string };
+  about: { headings: string[]; paragraphs: string[]; details: string[]; image: ContentImageDraft };
+  contact: {
+    words: string[];
+    emailLabel: string;
+    phoneLabel: string;
+    addressLabel: string;
+    image: ContentImageDraft;
+  };
   footer: { tagline: string; backToTop: string; copyright: string };
   navigation: NavLink[];
 }
@@ -116,12 +132,16 @@ export function siteCopyEqual(a: SiteCopy, b: SiteCopy): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function contentDraftFromCopy(copy: SiteCopy): ContentDraft {
+export function contentDraftFromCopy(
+  copy: SiteCopy,
+  managed?: ManagedContent | null
+): ContentDraft {
   return {
     hero: {
       words: [...copy.hero.words],
       meta: [...copy.hero.meta],
       scrollLabel: copy.hero.scrollLabel,
+      image: imageDraftFrom(copy.hero.image.alt, managed?.blocks.hero),
     },
     marquee: [...copy.marquee],
     statement: { lines: [...copy.statement.lines], paragraph: copy.statement.paragraph },
@@ -129,12 +149,14 @@ export function contentDraftFromCopy(copy: SiteCopy): ContentDraft {
       headings: [...copy.about.headings],
       paragraphs: [...copy.about.paragraphs],
       details: [...copy.about.details],
+      image: imageDraftFrom(copy.about.image.alt, managed?.blocks.about),
     },
     contact: {
       words: [...copy.contact.words],
       emailLabel: copy.contact.links[0]?.label ?? "Email",
       phoneLabel: copy.contact.links[1]?.label ?? "Điện thoại",
       addressLabel: copy.contact.addressLabel,
+      image: imageDraftFrom(copy.contact.image.alt, managed?.blocks.contact),
     },
     footer: {
       tagline: copy.footer.tagline,
@@ -308,18 +330,48 @@ function mergeFooter(
   };
 }
 
+function imageDraftFrom(
+  fallbackAlt: string,
+  data: Record<string, unknown> | undefined
+): ContentImageDraft {
+  return {
+    image_path: nonEmpty(text(data?.image_path)) || null,
+    image_alt: nonEmpty(text(data?.image_alt)) || fallbackAlt,
+    image_width: num(data?.image_width),
+    image_height: num(data?.image_height),
+    focal_point_x: num(data?.focal_point_x) ?? 50,
+    focal_point_y: num(data?.focal_point_y) ?? 50,
+  };
+}
+
 function resolveImage<T extends ProjectImage>(
   fallback: T,
   data: Record<string, unknown> | undefined
 ): T {
+  const alt = nonEmpty(text(data?.image_alt)) || fallback.alt;
   const path = text(data?.image_path)?.trim();
-  if (!path) return fallback;
-  const alt = nonEmpty(text(data?.image_alt));
+  if (!path) return { ...fallback, alt };
+
+  const width = num(data?.image_width);
+  const height = num(data?.image_height);
   return {
     ...fallback,
     src: imageUrl(path),
-    alt: alt || fallback.alt,
+    alt,
+    width: width ?? fallback.width,
+    height: height ?? fallback.height,
+    focalPointX: num(data?.focal_point_x) ?? 50,
+    focalPointY: num(data?.focal_point_y) ?? 50,
   };
+}
+
+function num(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 }
 
 function navLinks(value: unknown): NavLink[] | undefined {

@@ -68,6 +68,30 @@ export function buildStoragePath(kind: ProjectKind, slug: string, file: File): s
   return `${folder}/${safeSlug}/${id}.${ext}`;
 }
 
+export type SiteImageSlot = "hero" | "about" | "contact";
+
+/** Site-section originals. Separate from project folders so a later cleanup is obvious. */
+export function buildSiteImagePath(slot: SiteImageSlot, file: File): string {
+  const ext = extensionFor(file) ?? "jpg";
+  return `site/${slot}/${crypto.randomUUID()}.${ext}`;
+}
+
+/**
+ * Object-position for a managed photograph. Centre (50/50) returns undefined so
+ * the public site keeps the CSS default and stays pixel-identical to static.
+ * Phase 9 will write other values; this is what will pick them up.
+ */
+export function managedObjectPosition(
+  focalX?: number | null,
+  focalY?: number | null
+): string | undefined {
+  if (focalX == null && focalY == null) return undefined;
+  const x = focalX ?? 50;
+  const y = focalY ?? 50;
+  if (x === 50 && y === 50) return undefined;
+  return objectPosition(x, y);
+}
+
 /**
  * Resolves a stored path or leftover external URL to something an <img> can load.
  * When a transform pipeline lands, this is the only function that should change.

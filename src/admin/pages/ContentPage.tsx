@@ -1,35 +1,29 @@
 import { useEffect, useState, type ReactNode } from "react";
-import CurrentImagePreview from "../components/CurrentImagePreview";
 import { Button, ErrorNote, Field, TextArea, TextInput } from "../components/Form";
 import { PageHeader } from "../components/PageHeader";
+import ReplaceablePhotograph from "../components/ReplaceablePhotograph";
 import {
   contentDraftFromCopy,
   fetchManagedContent,
-  hasManagedImage,
   resolveSiteCopy,
   staticSiteCopy,
   type ContentDraft,
 } from "../../lib/content/siteCopy";
 import { saveContentDraft } from "../../lib/db/siteContent";
+import { deleteStoredObject } from "../../lib/storage";
 
 function splitLines(value: string): string[] {
   return value.split("\n");
 }
 
+const staticCopy = staticSiteCopy();
+
 export default function ContentPage() {
-  const [draft, setDraft] = useState<ContentDraft>(() => contentDraftFromCopy(staticSiteCopy()));
-  const [heroSrc, setHeroSrc] = useState(staticSiteCopy().hero.image.src);
-  const [heroAlt, setHeroAlt] = useState(staticSiteCopy().hero.image.alt);
-  const [aboutSrc, setAboutSrc] = useState(staticSiteCopy().about.image.src);
-  const [aboutAlt, setAboutAlt] = useState(staticSiteCopy().about.image.alt);
-  const [contactSrc, setContactSrc] = useState(staticSiteCopy().contact.image.src);
-  const [contactAlt, setContactAlt] = useState(staticSiteCopy().contact.image.alt);
-  const [heroManaged, setHeroManaged] = useState(false);
-  const [aboutManaged, setAboutManaged] = useState(false);
-  const [contactManaged, setContactManaged] = useState(false);
+  const [draft, setDraft] = useState<ContentDraft>(() => contentDraftFromCopy(staticCopy));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [orphans, setOrphans] = useState<string[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -37,25 +31,17 @@ export default function ContentPage() {
       const managed = await fetchManagedContent();
       if (!alive) return;
       const copy = resolveSiteCopy(managed);
-      setDraft(contentDraftFromCopy(copy));
-      setHeroSrc(copy.hero.image.src);
-      setHeroAlt(copy.hero.image.alt);
-      setAboutSrc(copy.about.image.src);
-      setAboutAlt(copy.about.image.alt);
-      setContactSrc(copy.contact.image.src);
-      setContactAlt(copy.contact.image.alt);
-      setHeroManaged(hasManagedImage(managed?.blocks.hero));
-      setAboutManaged(hasManagedImage(managed?.blocks.about));
-      setContactManaged(hasManagedImage(managed?.blocks.contact));
+      setDraft(contentDraftFromCopy(copy, managed));
     })();
     return () => {
       alive = false;
     };
   }, []);
 
-  function patch<K extends keyof ContentDraft>(key: K, value: ContentDraft[K]) {
+  function patch<K extends keyof ContentDraft>(key: K, value: ContentDraft[K], orphanPath?: string) {
     setSaved(false);
     setDraft((current) => ({ ...current, [key]: value }));
+    if (orphanPath) setOrphans((current) => [...current, orphanPath]);
   }
 
   async function onSave() {
@@ -67,6 +53,10 @@ export default function ContentPage() {
         words: draft.hero.words.map((w) => w.trim()).filter(Boolean),
         meta: draft.hero.meta.map((m) => m.trim()).filter(Boolean),
         scrollLabel: draft.hero.scrollLabel.trim(),
+        image: {
+          ...draft.hero.image,
+          image_alt: draft.hero.image.image_alt.trim(),
+        },
       },
       marquee: draft.marquee.map((item) => item.trim()).filter(Boolean),
       statement: {
@@ -77,12 +67,20 @@ export default function ContentPage() {
         headings: draft.about.headings.map((h) => h.trim()).filter(Boolean),
         paragraphs: draft.about.paragraphs.map((p) => p.trim()).filter(Boolean),
         details: draft.about.details.map((d) => d.trim()).filter(Boolean),
+        image: {
+          ...draft.about.image,
+          image_alt: draft.about.image.image_alt.trim(),
+        },
       },
       contact: {
         words: draft.contact.words.map((w) => w.trim()).filter(Boolean),
         emailLabel: draft.contact.emailLabel.trim(),
         phoneLabel: draft.contact.phoneLabel.trim(),
         addressLabel: draft.contact.addressLabel.trim(),
+        image: {
+          ...draft.contact.image,
+          image_alt: draft.contact.image.image_alt.trim(),
+        },
       },
       footer: {
         tagline: draft.footer.tagline.trim(),
@@ -99,6 +97,10 @@ export default function ContentPage() {
       return;
     }
     setSaved(true);
+    if (orphans.length) {
+      await Promise.all(orphans.map((path) => deleteStoredObject(path)));
+      setOrphans([]);
+    }
   }
 
   return (
@@ -124,7 +126,14 @@ export default function ContentPage() {
 
       <div className="max-w-3xl space-y-10">
         <Section title="Hero">
-          <CurrentImagePreview title="Hero photograph" src={heroSrc} alt={heroAlt} managed={heroManaged} />
+          <ReplaceablePhotograph
+            title="Hero photograph"
+            slot="hero"
+            staticSrc={staticCopy.hero.image.src}
+            staticAlt={staticCopy.hero.image.alt}
+            image={draft.hero.image}
+            onChange={(image, orphan) => patch("hero", { ...draft.hero, image }, orphan)}
+          />
           <Field label="Words" hint="One line per word. These are the oversized hero lines.">
             <TextArea
               value={draft.hero.words.join("\n")}
@@ -175,7 +184,14 @@ export default function ContentPage() {
         </Section>
 
         <Section title="About">
-          <CurrentImagePreview title="About photograph" src={aboutSrc} alt={aboutAlt} managed={aboutManaged} />
+          <ReplaceablePhotograph
+            title="About photograph"
+            slot="about"
+            staticSrc={staticCopy.about.image.src}
+            staticAlt={staticCopy.about.image.alt}
+            image={draft.about.image}
+            onChange={(image, orphan) => patch("about", { ...draft.about, image }, orphan)}
+          />
           <Field label="Headings" hint="One line per heading. The second line is the stroked word.">
             <TextArea
               value={draft.about.headings.join("\n")}
@@ -200,11 +216,13 @@ export default function ContentPage() {
         </Section>
 
         <Section title="Contact">
-          <CurrentImagePreview
+          <ReplaceablePhotograph
             title="Contact photograph"
-            src={contactSrc}
-            alt={contactAlt}
-            managed={contactManaged}
+            slot="contact"
+            staticSrc={staticCopy.contact.image.src}
+            staticAlt={staticCopy.contact.image.alt}
+            image={draft.contact.image}
+            onChange={(image, orphan) => patch("contact", { ...draft.contact, image }, orphan)}
           />
           <Field label="Words" hint="One line per oversized contact word.">
             <TextArea

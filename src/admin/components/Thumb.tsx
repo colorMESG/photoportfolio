@@ -62,13 +62,14 @@ export function Thumb({
 export function SourceBadge({
   source,
 }: {
-  source: "static" | "supabase" | "static-current" | "supabase-new";
+  source: "static" | "supabase" | "static-current" | "supabase-new" | "managed-supabase";
 }) {
   const label = {
     static: "STATIC",
     supabase: "MANAGED",
     "static-current": "CURRENT · STATIC",
     "supabase-new": "NEW · SUPABASE",
+    "managed-supabase": "MANAGED · SUPABASE",
   }[source];
 
   const tone =

@@ -1,4 +1,4 @@
-import type { ContentDraft, SettingsDraft } from "../content/siteCopy";
+import type { ContentDraft, ContentImageDraft, SettingsDraft } from "../content/siteCopy";
 import { requireSupabase } from "../supabase";
 import type { ContentBlockRow, SiteSettingsRow } from "./types";
 
@@ -78,9 +78,8 @@ export async function getContentBlocks(): Promise<Result<Record<string, Record<s
 }
 
 /**
- * Writes the About / Content form. Extra keys already on a block (for example
- * a future `image_path`) are preserved; we only overlay the fields this screen
- * edits.
+ * Writes the About / Content form. Extra keys already on a block are preserved;
+ * this screen overlays copy plus the Hero / About / Contact photograph fields.
  */
 export async function saveContentDraft(draft: ContentDraft): Promise<Result<true>> {
   const existing = await getContentBlocks();
@@ -95,6 +94,7 @@ export async function saveContentDraft(draft: ContentDraft): Promise<Result<true
         words: draft.hero.words,
         meta: draft.hero.meta,
         scrollLabel: draft.hero.scrollLabel,
+        ...imageFields(draft.hero.image),
       },
     },
     {
@@ -116,6 +116,7 @@ export async function saveContentDraft(draft: ContentDraft): Promise<Result<true
         headings: draft.about.headings,
         paragraphs: draft.about.paragraphs,
         details: draft.about.details,
+        ...imageFields(draft.about.image),
       },
     },
     {
@@ -126,6 +127,7 @@ export async function saveContentDraft(draft: ContentDraft): Promise<Result<true
         emailLabel: draft.contact.emailLabel,
         phoneLabel: draft.contact.phoneLabel,
         addressLabel: draft.contact.addressLabel,
+        ...imageFields(draft.contact.image),
       },
     },
     {
@@ -145,6 +147,17 @@ export async function saveContentDraft(draft: ContentDraft): Promise<Result<true
 
   const { error } = await requireSupabase().from("content_blocks").upsert(writes);
   return { data: error ? null : true, error: error ? describe(error) : null };
+}
+
+function imageFields(image: ContentImageDraft): Record<string, unknown> {
+  return {
+    image_path: image.image_path,
+    image_alt: image.image_alt.trim() || null,
+    image_width: image.image_width,
+    image_height: image.image_height,
+    focal_point_x: image.focal_point_x,
+    focal_point_y: image.focal_point_y,
+  };
 }
 
 function nullify(value: string): string | null {
