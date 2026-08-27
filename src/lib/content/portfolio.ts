@@ -1,0 +1,196 @@
+/**
+ * Public project photography resolution.
+ *
+ * First paint is the static snapshot in `src/content/`. After mount, published
+ * Supabase projects overlay that snapshot, matched by `kind + slug`. A project
+ * with no managed photographs keeps its static set — a row alone never blanks
+ * a gallery. When managed photographs exist they replace the static set for
+ * that project; the two are not mixed.
+ *
+ * Fetches PostgREST directly so supabase-js stays out of the public bundle.
+ */
+
+import type { AerialImage, CorporateProject, PhotographyProject, ProjectImage } from "../../content/types";
+import type { ProjectImageRow, ProjectKind, ProjectRow } from "../db/types";
+import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "../env";
+import { imageUrl } from "../images";
+
+export interface ManagedProject {
+  project: ProjectRow;
+  images: ProjectImage[];
+}
+
+export type PortfolioOverlays = Record<string, ManagedProject>;
+
+export function projectKey(kind: ProjectKind, slug: string): string {
+  return `${kind}:${slug}`;
+}
+
+export function toPublicImage(row: ProjectImageRow): ProjectImage | null {
+  // Prefer the stored original. `external_url` is only a leftover placeholder
+  // from migration; a real upload should never lose to it.
+  const src = row.storage_path
+    ? imageUrl(row.storage_path)
+    : imageUrl(null, row.external_url);
+  if (!src) return null;
+  return {
+    id: row.id,
+    src,
+    alt: row.alt ?? "",
+    caption: row.caption ?? undefined,
+    width: row.width ?? undefined,
+    height: row.height ?? undefined,
+    focalPointX: row.focal_point_x,
+    focalPointY: row.focal_point_y,
+    order: row.sort_order,
+    featured: row.featured,
+  };
+}
+
+export function resolveCover(managed: ManagedProject | null, staticFallback?: ProjectImage): ProjectImage | undefined {
+  if (!managed || managed.images.length === 0) return staticFallback;
+  const byId = managed.project.cover_image_id
+    ? managed.images.find((image) => image.id === managed.project.cover_image_id)
+    : undefined;
+  return byId ?? managed.images[0] ?? staticFallback;
+}
+
+export function overlayPhotography(
+  fallback: PhotographyProject,
+  managed: ManagedProject | null
+): PhotographyProject {
+  if (!managed || managed.images.length === 0) return fallback;
+  const { project, images } = managed;
+  return {
+    ...fallback,
+    title: project.title || fallback.title,
+    subtitle: project.subtitle || fallback.subtitle,
+    year: project.year || fallback.year,
+    location: project.location || fallback.location,
+    displayNumber: project.display_number || fallback.displayNumber,
+    coverImage: resolveCover(managed, fallback.coverImage ?? fallback.images[0]),
+    images: images.map((image, index) => ({
+      ...image,
+      exifIdx: fallback.images[index]?.exifIdx ?? 0,
+    })),
+  };
+}
+
+export function overlayCorporateList(
+  fallback: CorporateProject[],
+  managed: ManagedProject | null
+): CorporateProject[] {
+  if (!managed || managed.images.length === 0) return fallback;
+  // Sequential `sort_order` into existing cells. Cover is not remapped onto
+  // index 0 — that would duplicate a later photograph in a multi-image grid.
+  return managed.images.map((image, index) => {
+    const slot = fallback[index];
+    return {
+      id: image.id,
+      src: image.src,
+      alt: image.alt || slot?.alt || "",
+      category: slot?.category ?? fallback[0]?.category ?? "",
+      client: slot?.client ?? managed.project.client ?? managed.project.title,
+      year: slot?.year ?? managed.project.year ?? fallback[0]?.year,
+      focalPointX: image.focalPointX,
+      focalPointY: image.focalPointY,
+    };
+  });
+}
+
+export function overlayCorporateItem(
+  fallback: CorporateProject,
+  managed: ManagedProject | null
+): CorporateProject {
+  if (!managed || managed.images.length === 0) return fallback;
+  const image = resolveCover(managed) ?? managed.images[0];
+  if (!image) return fallback;
+  return {
+    ...fallback,
+    id: image.id,
+    src: image.src,
+    alt: image.alt || fallback.alt,
+    client: managed.project.client || managed.project.title || fallback.client,
+    year: managed.project.year || fallback.year,
+    focalPointX: image.focalPointX,
+    focalPointY: image.focalPointY,
+  };
+}
+
+export function overlayAerial(
+  fallback: AerialImage,
+  managed: ManagedProject | null
+): AerialImage {
+  if (!managed || managed.images.length === 0) return fallback;
+  const image = resolveCover(managed) ?? managed.images[0];
+  const { project } = managed;
+  return {
+    ...fallback,
+    ...image,
+    id: image.id,
+    src: image.src,
+    alt: image.alt || fallback.alt,
+    title: project.title || fallback.title,
+    region: project.location || fallback.region,
+    altitude: project.altitude || fallback.altitude,
+    coordinates: project.coordinates || fallback.coordinates,
+  };
+}
+
+/**
+ * Loads published projects and their photographs. Returns null when Supabase
+ * is unconfigured or unreachable so the caller keeps the static snapshot.
+ */
+export async function fetchPublishedPortfolio(): Promise<PortfolioOverlays | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const [projects, images] = await Promise.all([
+      restRows<ProjectRow>("projects?published=eq.true&select=*"),
+      restRows<ProjectImageRow>(
+        "project_images?select=*&order=sort_order.asc,created_at.asc"
+      ),
+    ]);
+    if (!projects) return null;
+
+    const byProject = new Map<string, ProjectImage[]>();
+    for (const row of images ?? []) {
+      const image = toPublicImage(row);
+      if (!image) continue;
+      const list = byProject.get(row.project_id) ?? [];
+      list.push(image);
+      byProject.set(row.project_id, list);
+    }
+
+    const overlays: PortfolioOverlays = {};
+    for (const project of projects) {
+      const photos = (byProject.get(project.id) ?? []).slice().sort((a, b) => {
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
+      if (photos.length === 0) continue;
+      overlays[projectKey(project.kind, project.slug)] = {
+        project,
+        images: photos,
+      };
+    }
+    return overlays;
+  } catch {
+    return null;
+  }
+}
+
+export function overlaysEqual(a: PortfolioOverlays, b: PortfolioOverlays): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+async function restRows<T>(path: string): Promise<T[] | null> {
+  const base = supabaseUrl.replace(/\/$/, "");
+  const response = await fetch(`${base}/rest/v1/${path}`, {
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+    },
+  });
+  if (!response.ok) return null;
+  const json = (await response.json()) as T[];
+  return Array.isArray(json) ? json : null;
+}

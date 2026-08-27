@@ -69,6 +69,8 @@ export interface CorporateProject {
   year?: string;
   order?: number;
   published?: boolean;
+  focalPointX?: number;
+  focalPointY?: number;
 }
 
 export interface ExifPreset {

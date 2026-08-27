@@ -22,8 +22,21 @@ import {
 import {
   exifPresets, servicesContent, uiLabels,
 } from "./content/site";
+import type { ProjectImage } from "./content/types";
+import {
+  PortfolioProvider,
+  useAerial,
+  useCorporate,
+  useCorporateList,
+  useCover,
+  usePhotography,
+} from "./lib/content/PortfolioProvider";
 import { SiteCopyProvider, useSiteCopy } from "./lib/content/SiteCopyProvider";
 import { managedObjectPosition } from "./lib/images";
+
+function imgPos(image?: Pick<ProjectImage, "focalPointX" | "focalPointY">) {
+  return image ? managedObjectPosition(image.focalPointX, image.focalPointY) : undefined;
+}
 
 type HP = { onImgHover: () => void; onImgLeave: () => void };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -181,10 +194,10 @@ function Photo({ src, alt, className="", style, onHover, onLeave, exifIdx=0, obj
 }
 
 // ─── CORP PHOTO — corporate: full color + info card + tilt + lightbox ────────
-function CorpPhoto({ src, alt, className="", style, onHover, onLeave, category, client, year="2026" }: {
+function CorpPhoto({ src, alt, className="", style, onHover, onLeave, category, client, year="2026", objectPosition }: {
   src:string; alt:string; className?:string; style?:CSSProperties;
   onHover?:()=>void; onLeave?:()=>void;
-  category:string; client:string; year?:string;
+  category:string; client:string; year?:string; objectPosition?:string;
 }) {
   const lb = useContext(LbCtx);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -205,7 +218,7 @@ function CorpPhoto({ src, alt, className="", style, onHover, onLeave, category, 
     <div ref={wrapRef} className={`relative overflow-hidden bg-neutral-200 ${className}`} style={{ willChange:"transform", cursor:"none", ...style }}
       onMouseMove={onMove} onMouseEnter={e => { setHovered(true); onHover?.(); onMove(e); }} onMouseLeave={onOut}
       onClick={() => lb.open(src, 0)}>
-      <img src={src} alt={alt} className="w-full h-full object-cover block" style={{ transform:hovered?"scale(1.06)":"scale(1)", transition:"transform 1s cubic-bezier(0.16,1,0.3,1)", filter:hovered?"brightness(1.04)":"brightness(1)" }} />
+      <img src={src} alt={alt} className="w-full h-full object-cover block" style={{ transform:hovered?"scale(1.06)":"scale(1)", transition:"transform 1s cubic-bezier(0.16,1,0.3,1)", filter:hovered?"brightness(1.04)":"brightness(1)", ...(objectPosition ? { objectPosition } : {}) }} />
       {/* Category badge */}
       <div className="absolute top-3 left-3" style={{ opacity:hovered?1:0, transform:hovered?"translateY(0)":"translateY(-6px)", transition:"all 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
         <span className="font-mono text-[8px] tracking-[0.25em] uppercase px-2 py-1 bg-black/80 text-white/80">{category}</span>
@@ -461,10 +474,15 @@ function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
 
 // ─── SELECTED WORK ───────────────────────────────────────────────────────────
 function SelectedWork({ onImgHover, onImgLeave }: HP) {
-  const [p1a, p1b] = portraitStudy.images;
-  const [p2a, p2b] = locationSeries.images;
-  const [p4] = veilStudy.images;
-  const [p5a, p5b, p5c] = fragments.images;
+  const study = usePhotography(portraitStudy);
+  const location = usePhotography(locationSeries);
+  const sheet = usePhotography(contactSheet);
+  const veil = usePhotography(veilStudy);
+  const frag = usePhotography(fragments);
+  const [p1a, p1b] = study.images;
+  const [p2a, p2b] = location.images;
+  const [p4] = veil.images;
+  const [p5a, p5b, p5c] = frag.images;
   return (
     <section id="work" className="bg-[#f5f0e8] pt-28 pb-0">
       <div className="px-8 md:px-14 overflow-hidden">
@@ -472,40 +490,42 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         <Reveal delay={80}><ScrambleText text={selectedWorksHeading.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9, marginLeft:"8vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
-        <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{portraitStudy.displayNumber}</Lbl><div><Lbl>{portraitStudy.title}</Lbl><Lbl>{portraitStudy.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{study.displayNumber}</Lbl><div><Lbl>{study.title}</Lbl><Lbl>{study.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4 md:gap-6 items-start">
-          <Reveal><Photo src={p1a.src} alt={p1a.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1a.exifIdx} /></Reveal>
-          <Reveal delay={160} className="md:mt-32"><Photo src={p1b.src} alt={p1b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1b.exifIdx} /></Reveal>
+          {p1a && <Reveal><Photo src={p1a.src} alt={p1a.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1a.exifIdx} objectPosition={imgPos(p1a)} /></Reveal>}
+          {p1b && <Reveal delay={160} className="md:mt-32"><Photo src={p1b.src} alt={p1b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1b.exifIdx} objectPosition={imgPos(p1b)} /></Reveal>}
         </div>
       </div>
       <div className="mt-24 bg-[#0a0a0a] py-20 px-8 md:px-14">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{locationSeries.displayNumber}</Lbl><div><Lbl light>{locationSeries.title}</Lbl><Lbl light>{locationSeries.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{location.displayNumber}</Lbl><div><Lbl light>{location.title}</Lbl><Lbl light>{location.year}</Lbl></div></Reveal>
         <div className="flex flex-col md:flex-row gap-4 md:gap-5 items-end">
-          <Reveal className="w-full md:w-[68%]"><Photo src={p2a.src} alt={p2a.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2a.exifIdx} /></Reveal>
-          <Reveal delay={140} className="w-full md:w-[30%]"><Photo src={p2b.src} alt={p2b.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2b.exifIdx} /></Reveal>
+          {p2a && <Reveal className="w-full md:w-[68%]"><Photo src={p2a.src} alt={p2a.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2a.exifIdx} objectPosition={imgPos(p2a)} /></Reveal>}
+          {p2b && <Reveal delay={140} className="w-full md:w-[30%]"><Photo src={p2b.src} alt={p2b.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2b.exifIdx} objectPosition={imgPos(p2b)} /></Reveal>}
         </div>
         <Reveal delay={200} className="mt-8"><ScrambleText text={locationSeriesWord} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{contactSheet.displayNumber}</Lbl><div><Lbl>{contactSheet.title}</Lbl><Lbl>{contactSheet.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{sheet.displayNumber}</Lbl><div><Lbl>{sheet.title}</Lbl><Lbl>{sheet.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-3 gap-2 md:gap-4">
-          {contactSheet.images.map((img,i) => <Reveal key={img.id} delay={i*100}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3.2" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} /></Reveal>)}
+          {sheet.images.map((img,i) => <Reveal key={img.id} delay={i*100}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3.2" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}
         </div>
       </div>
       <div className="mt-24">
-        <Reveal>
-          <div className="relative mx-4 md:mx-8">
-            <Photo src={p4.src} alt={p4.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p4.exifIdx} />
-            <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10"><Lbl light>{veilStudy.displayNumber}</Lbl><Lbl light>{veilStudy.title}</Lbl><Lbl light>{veilStudy.year}</Lbl></div>
-          </div>
-        </Reveal>
+        {p4 && (
+          <Reveal>
+            <div className="relative mx-4 md:mx-8">
+              <Photo src={p4.src} alt={p4.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p4.exifIdx} objectPosition={imgPos(p4)} />
+              <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10"><Lbl light>{veil.displayNumber}</Lbl><Lbl light>{veil.title}</Lbl><Lbl light>{veil.year}</Lbl></div>
+            </div>
+          </Reveal>
+        )}
       </div>
       <div className="mt-24 px-8 md:px-14 pb-24">
-        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{fragments.displayNumber}</Lbl><div><Lbl>{fragments.title}</Lbl><Lbl>{fragments.year}</Lbl></div></Reveal>
+        <Reveal className="flex items-center gap-4 mb-8"><Lbl>{frag.displayNumber}</Lbl><div><Lbl>{frag.title}</Lbl><Lbl>{frag.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_0.6fr_0.5fr] gap-4 items-start">
-          <Reveal><Photo src={p5a.src} alt={p5a.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5a.exifIdx} /></Reveal>
-          <Reveal delay={120} className="md:mt-16"><Photo src={p5b.src} alt={p5b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5b.exifIdx} /></Reveal>
-          <Reveal delay={220} className="md:mt-40"><Photo src={p5c.src} alt={p5c.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5c.exifIdx} /></Reveal>
+          {p5a && <Reveal><Photo src={p5a.src} alt={p5a.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5a.exifIdx} objectPosition={imgPos(p5a)} /></Reveal>}
+          {p5b && <Reveal delay={120} className="md:mt-16"><Photo src={p5b.src} alt={p5b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5b.exifIdx} objectPosition={imgPos(p5b)} /></Reveal>}
+          {p5c && <Reveal delay={220} className="md:mt-40"><Photo src={p5c.src} alt={p5c.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5c.exifIdx} objectPosition={imgPos(p5c)} /></Reveal>}
         </div>
       </div>
     </section>
@@ -531,9 +551,27 @@ function StatementSection() {
   );
 }
 
+const HEADSHOT_SLOTS: { delay: number; className: string }[] = [
+  { delay: 0, className: "" },
+  { delay: 80, className: "md:mt-10" },
+  { delay: 160, className: "" },
+  { delay: 60, className: "md:mt-6" },
+  { delay: 140, className: "" },
+  { delay: 220, className: "md:mt-10" },
+];
+
 // ─── CORPORATE & EVENTS ──────────────────────────────────────────────────────
 function CorporateSection({ onImgHover, onImgLeave }: HP) {
-  const [h1, h2, h3, h4, h5, h6] = headshots;
+  const portraits = useCorporateList("chan-dung-headshot", headshots);
+  const panel = useCorporate("techsummit-vietnam-2026", eventPanel);
+  const award = useCorporate("giai-thuong-xuat-sac", eventAward);
+  const gala = useCorporate("gala-thuong-nien-2026", eventGala);
+  const networking = useCorporate("dem-ket-noi", eventNetworking);
+  const stage = useCorporate("giai-thuong-doi-moi", eventStage);
+  const diverse = useCorporate("startup-hcm", teamDiverse);
+  const business = useCorporate("doanh-nghiep-hcm", teamBusiness);
+  const outdoor = useCorporate("teambuilding-2025", teamOutdoor);
+  const overhead = useCorporate("creative-agency", teamOverhead);
   return (
     <section id="business" className="bg-[#fafafa] pt-28 pb-24">
       {/* Heading */}
@@ -555,12 +593,14 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
           <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{headshotsLabel}</span>
         </Reveal>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 items-start">
-          <Reveal><CorpPhoto src={h1.src} alt={h1.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h1.category} client={h1.client} /></Reveal>
-          <Reveal delay={80} className="md:mt-10"><CorpPhoto src={h2.src} alt={h2.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h2.category} client={h2.client} /></Reveal>
-          <Reveal delay={160}><CorpPhoto src={h3.src} alt={h3.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h3.category} client={h3.client} /></Reveal>
-          <Reveal delay={60} className="md:mt-6"><CorpPhoto src={h4.src} alt={h4.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h4.category} client={h4.client} /></Reveal>
-          <Reveal delay={140}><CorpPhoto src={h5.src} alt={h5.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h5.category} client={h5.client} /></Reveal>
-          <Reveal delay={220} className="md:mt-10"><CorpPhoto src={h6.src} alt={h6.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h6.category} client={h6.client} /></Reveal>
+          {portraits.map((h, i) => {
+            const slot = HEADSHOT_SLOTS[i] ?? { delay: 0, className: "" };
+            return (
+              <Reveal key={h.id} delay={slot.delay} className={slot.className}>
+                <CorpPhoto src={h.src} alt={h.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={h.category} client={h.client} year={h.year} objectPosition={imgPos(h)} />
+              </Reveal>
+            );
+          })}
         </div>
       </div>
 
@@ -572,15 +612,15 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
         </Reveal>
         {/* Large event + small portrait */}
         <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-3 md:gap-4 mb-4 items-start">
-          <Reveal><CorpPhoto src={eventPanel.src} alt={eventPanel.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={eventPanel.category} client={eventPanel.client} /></Reveal>
-          <Reveal delay={120} className="md:mt-12"><CorpPhoto src={eventAward.src} alt={eventAward.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={eventAward.category} client={eventAward.client} /></Reveal>
+          <Reveal><CorpPhoto src={panel.src} alt={panel.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={panel.category} client={panel.client} year={panel.year} objectPosition={imgPos(panel)} /></Reveal>
+          <Reveal delay={120} className="md:mt-12"><CorpPhoto src={award.src} alt={award.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={award.category} client={award.client} year={award.year} objectPosition={imgPos(award)} /></Reveal>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
-          <Reveal><CorpPhoto src={eventGala.src} alt={eventGala.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={eventGala.category} client={eventGala.client} /></Reveal>
+          <Reveal><CorpPhoto src={gala.src} alt={gala.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={gala.category} client={gala.client} year={gala.year} objectPosition={imgPos(gala)} /></Reveal>
           <Reveal delay={100}>
             <div className="grid grid-cols-2 gap-3 md:gap-4 h-full">
-              <CorpPhoto src={eventNetworking.src} alt={eventNetworking.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={eventNetworking.category} client={eventNetworking.client} />
-              <CorpPhoto src={eventStage.src} alt={eventStage.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={eventStage.category} client={eventStage.client} />
+              <CorpPhoto src={networking.src} alt={networking.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={networking.category} client={networking.client} year={networking.year} objectPosition={imgPos(networking)} />
+              <CorpPhoto src={stage.src} alt={stage.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={stage.category} client={stage.client} year={stage.year} objectPosition={imgPos(stage)} />
             </div>
           </Reveal>
         </div>
@@ -596,12 +636,12 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
           <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{teamsLabel}</span>
         </Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4 mb-4">
-          <Reveal><CorpPhoto src={teamDiverse.src} alt={teamDiverse.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={teamDiverse.category} client={teamDiverse.client} /></Reveal>
-          <Reveal delay={100}><CorpPhoto src={teamBusiness.src} alt={teamBusiness.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={teamBusiness.category} client={teamBusiness.client} /></Reveal>
+          <Reveal><CorpPhoto src={diverse.src} alt={diverse.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={diverse.category} client={diverse.client} year={diverse.year} objectPosition={imgPos(diverse)} /></Reveal>
+          <Reveal delay={100}><CorpPhoto src={business.src} alt={business.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={business.category} client={business.client} year={business.year} objectPosition={imgPos(business)} /></Reveal>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-4">
-          <Reveal><CorpPhoto src={teamOutdoor.src} alt={teamOutdoor.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={teamOutdoor.category} client={teamOutdoor.client} /></Reveal>
-          <Reveal delay={120}><CorpPhoto src={teamOverhead.src} alt={teamOverhead.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={teamOverhead.category} client={teamOverhead.client} /></Reveal>
+          <Reveal><CorpPhoto src={outdoor.src} alt={outdoor.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={outdoor.category} client={outdoor.client} year={outdoor.year} objectPosition={imgPos(outdoor)} /></Reveal>
+          <Reveal delay={120}><CorpPhoto src={overhead.src} alt={overhead.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={overhead.category} client={overhead.client} year={overhead.year} objectPosition={imgPos(overhead)} /></Reveal>
         </div>
       </div>
     </section>
@@ -610,13 +650,18 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── BEFORE/AFTER + STATS ────────────────────────────────────────────────────
 function RetouchSection({ onImgHover, onImgLeave }: HP) {
+  const cover = useCover("corporate", "chan-dung-headshot", {
+    id: retouchContent.image.src,
+    src: retouchContent.image.src,
+    alt: retouchContent.image.alt,
+  });
   return (
     <section className="bg-[#0a0a0a] py-24 px-8 md:px-14">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-16 md:gap-20 items-center">
         {/* Before / After */}
         <Reveal>
           <div className="font-mono text-[9px] tracking-[0.28em] uppercase text-white/30 mb-6">{retouchContent.label}</div>
-          <BeforeAfter src={retouchContent.image.src} alt={retouchContent.image.alt} />
+          <BeforeAfter src={cover?.src ?? retouchContent.image.src} alt={cover?.alt ?? retouchContent.image.alt} />
         </Reveal>
         {/* Stats */}
         <div>
@@ -636,8 +681,8 @@ function RetouchSection({ onImgHover, onImgLeave }: HP) {
 }
 
 // ─── FLYCAM ──────────────────────────────────────────────────────────────────
-function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, className = "", style }: {
-  src: string; loc: string; region: string; alt: string; onHover?:()=>void; onLeave?:()=>void; className?:string; style?:CSSProperties;
+function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, className = "", style, objectPosition }: {
+  src: string; loc: string; region: string; alt: string; onHover?:()=>void; onLeave?:()=>void; className?:string; style?:CSSProperties; objectPosition?:string;
 }) {
   const lb = useContext(LbCtx);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -662,7 +707,7 @@ function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, classN
       onMouseLeave={onOut}
       onClick={() => lb.open(src, 0)}>
       <img src={src} alt={loc} className="w-full h-full object-cover block"
-        style={{ transform: hovered ? "scale(1.05)" : "scale(1)", transition: "transform 1.2s cubic-bezier(0.16,1,0.3,1)" }} />
+        style={{ transform: hovered ? "scale(1.05)" : "scale(1)", transition: "transform 1.2s cubic-bezier(0.16,1,0.3,1)", ...(objectPosition ? { objectPosition } : {}) }} />
       {/* altitude badge */}
       <div className="absolute top-3 right-3" style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.3s" }}>
         <span className="font-mono text-[8px] tracking-[0.22em] uppercase px-2 py-1 bg-black/70 text-white/70">↑ {altitude}</span>
@@ -678,6 +723,10 @@ function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, classN
 }
 
 function FlycamSection({ onImgHover, onImgLeave }: HP) {
+  const haLong = useAerial("vinh-ha-long", flyHaLong);
+  const saPa = useAerial("thung-lung-sa-pa", flySaPa);
+  const muCangChai = useAerial("mu-cang-chai", flyMuCangChai);
+  const baiTuLong = useAerial("vinh-bai-tu-long", flyBaiTuLong);
   return (
     <section id="flycam" className="bg-[#050505] pt-28 pb-24">
       {/* Heading */}
@@ -702,13 +751,13 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}
           onClick={() => {}}>
-          <img src={flyHaLong.src} alt={flyHaLong.alt} className="w-full object-cover block"
-            style={{ aspectRatio:"21/9" }} />
+          <img src={haLong.src} alt={haLong.alt} className="w-full object-cover block"
+            style={{ aspectRatio:"21/9", ...(imgPos(haLong) ? { objectPosition: imgPos(haLong) } : {}) }} />
           <div className="absolute bottom-5 left-6">
-            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{flyHaLong.title}</div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${flyHaLong.region} · ↑ ${flyHaLong.altitude}`}</div>
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{haLong.title}</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${haLong.region} · ↑ ${haLong.altitude}`}</div>
           </div>
-          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{flyHaLong.coordinates}</div>
+          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{haLong.coordinates}</div>
         </div>
       </Reveal>
 
@@ -716,13 +765,13 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
       <Reveal className="px-4 md:px-8 mb-4">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
-          <img src={flySaPa.src} alt={flySaPa.alt} className="w-full object-cover block"
-            style={{ aspectRatio:"21/9" }} />
+          <img src={saPa.src} alt={saPa.alt} className="w-full object-cover block"
+            style={{ aspectRatio:"21/9", ...(imgPos(saPa) ? { objectPosition: imgPos(saPa) } : {}) }} />
           <div className="absolute bottom-5 left-6">
-            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{flySaPa.title}</div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${flySaPa.region} · ↑ ${flySaPa.altitude}`}</div>
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{saPa.title}</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${saPa.region} · ↑ ${saPa.altitude}`}</div>
           </div>
-          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{flySaPa.coordinates}</div>
+          <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{saPa.coordinates}</div>
         </div>
       </Reveal>
 
@@ -740,15 +789,15 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
       <Reveal className="px-4 md:px-8">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
-          <img src={flyMuCangChai.src} alt={flyMuCangChai.alt} className="w-full object-cover block"
-            style={{ aspectRatio:"21/9" }} />
+          <img src={muCangChai.src} alt={muCangChai.alt} className="w-full object-cover block"
+            style={{ aspectRatio:"21/9", ...(imgPos(muCangChai) ? { objectPosition: imgPos(muCangChai) } : {}) }} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <ScrambleText text={flycamOverlayWord} className="font-display font-black leading-none text-white/10 text-center"
               style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.025em" }} />
           </div>
           <div className="absolute bottom-5 right-6 text-right">
-            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{flyMuCangChai.title}</div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${flyMuCangChai.region} · ↑ ${flyMuCangChai.altitude}`}</div>
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{muCangChai.title}</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${muCangChai.region} · ↑ ${muCangChai.altitude}`}</div>
           </div>
         </div>
       </Reveal>
@@ -757,11 +806,11 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
       <Reveal className="px-4 md:px-8 mt-[3px]">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
-          <img src={flyBaiTuLong.src} alt={flyBaiTuLong.alt} className="w-full object-cover block"
-            style={{ aspectRatio:"21/9" }} />
+          <img src={baiTuLong.src} alt={baiTuLong.alt} className="w-full object-cover block"
+            style={{ aspectRatio:"21/9", ...(imgPos(baiTuLong) ? { objectPosition: imgPos(baiTuLong) } : {}) }} />
           <div className="absolute bottom-5 left-6">
-            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{flyBaiTuLong.title}</div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${flyBaiTuLong.region} · ↑ ${flyBaiTuLong.altitude}`}</div>
+            <div className="font-display font-black text-white leading-none" style={{ fontSize:"clamp(18px,3vw,40px)", letterSpacing:"-0.02em" }}>{baiTuLong.title}</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-white/50 uppercase mt-0.5">{`${baiTuLong.region} · ↑ ${baiTuLong.altitude}`}</div>
           </div>
         </div>
       </Reveal>
@@ -783,30 +832,31 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── ROSIE ───────────────────────────────────────────────────────────────────
 function RosieStory({ onImgHover, onImgLeave }: HP) {
-  const [r1, r2, r3, r4a, r4b, r5a, r5b, r5c, r6] = rosieProject.images;
+  const rosie = usePhotography(rosieProject);
+  const [r1, r2, r3, r4a, r4b, r5a, r5b, r5c, r6] = rosie.images;
   return (
     <section className="bg-[#f5f0e8] pt-24 pb-28">
       <div className="px-8 md:px-14 mb-14">
         <Reveal>
           <div className="flex items-end gap-8">
-            <ScrambleText text={rosieProject.title} className="font-display font-black leading-none" style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88 }} />
-            <div className="mb-2 hidden md:block"><Lbl>{rosieProject.subtitle}</Lbl><Lbl>{rosieProject.location}</Lbl><Lbl>{rosieProject.year}</Lbl></div>
+            <ScrambleText text={rosie.title} className="font-display font-black leading-none" style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88 }} />
+            <div className="mb-2 hidden md:block"><Lbl>{rosie.subtitle}</Lbl><Lbl>{rosie.location}</Lbl><Lbl>{rosie.year}</Lbl></div>
           </div>
-          <div className="font-mono text-[11px] tracking-[0.25em] uppercase text-[#888] mt-2">{rosieProject.subtitle}</div>
+          <div className="font-mono text-[11px] tracking-[0.25em] uppercase text-[#888] mt-2">{rosie.subtitle}</div>
         </Reveal>
       </div>
-      <Reveal className="px-4 md:px-8 mb-6"><Photo src={r1.src} alt={r1.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r1.exifIdx} /></Reveal>
+      {r1 && <Reveal className="px-4 md:px-8 mb-6"><Photo src={r1.src} alt={r1.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r1.exifIdx} objectPosition={imgPos(r1)} /></Reveal>}
       <div className="px-8 md:px-14 my-16 grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-6 items-start">
-        <Reveal><Photo src={r2.src} alt={r2.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r2.exifIdx} /></Reveal>
+        {r2 && <Reveal><Photo src={r2.src} alt={r2.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r2.exifIdx} objectPosition={imgPos(r2)} /></Reveal>}
         <Reveal delay={100} className="hidden md:flex items-end justify-end pb-6"><div className="text-right"><ScrambleText text={rosieNumerals[0].numeral} className="font-display font-black leading-none text-[#e8e3da]" style={{ fontSize:"clamp(40px,7vw,120px)", letterSpacing:"-0.02em" }} /><Lbl>{rosieNumerals[0].label}</Lbl></div></Reveal>
       </div>
       <div className="px-8 md:px-14 my-16 grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-6 items-start">
         <Reveal delay={80} className="hidden md:flex items-start pt-20"><div><ScrambleText text={rosieNumerals[1].numeral} className="font-display font-black leading-none text-[#e8e3da]" style={{ fontSize:"clamp(40px,7vw,120px)", letterSpacing:"-0.02em" }} /><Lbl>{rosieNumerals[1].label}</Lbl></div></Reveal>
-        <Reveal><Photo src={r3.src} alt={r3.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r3.exifIdx} /></Reveal>
+        {r3 && <Reveal><Photo src={r3.src} alt={r3.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r3.exifIdx} objectPosition={imgPos(r3)} /></Reveal>}
       </div>
-      <div className="px-8 md:px-14 my-6 grid grid-cols-2 gap-3 md:gap-6">{[r4a,r4b].map((img,i)=><Reveal key={img.id} delay={i*120}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} /></Reveal>)}</div>
-      <div className="px-8 md:px-20 my-16 grid grid-cols-3 gap-2 md:gap-5">{[r5a,r5b,r5c].map((img,i)=><Reveal key={img.id} delay={i*90}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} /></Reveal>)}</div>
-      <Reveal className="px-4 md:px-8"><Photo src={r6.src} alt={r6.alt} className="w-full" style={{ aspectRatio:"21/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r6.exifIdx} /></Reveal>
+      <div className="px-8 md:px-14 my-6 grid grid-cols-2 gap-3 md:gap-6">{[r4a,r4b].filter(Boolean).map((img,i)=><Reveal key={img.id} delay={i*120}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}</div>
+      <div className="px-8 md:px-20 my-16 grid grid-cols-3 gap-2 md:gap-5">{[r5a,r5b,r5c].filter(Boolean).map((img,i)=><Reveal key={img.id} delay={i*90}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}</div>
+      {r6 && <Reveal className="px-4 md:px-8"><Photo src={r6.src} alt={r6.alt} className="w-full" style={{ aspectRatio:"21/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r6.exifIdx} objectPosition={imgPos(r6)} /></Reveal>}
     </section>
   );
 }
@@ -944,7 +994,9 @@ function Footer() {
 export default function App() {
   return (
     <SiteCopyProvider>
-      <Portfolio />
+      <PortfolioProvider>
+        <Portfolio />
+      </PortfolioProvider>
     </SiteCopyProvider>
   );
 }
