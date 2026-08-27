@@ -7,7 +7,8 @@ import {
   updateProjectImage,
 } from "../../lib/db/images";
 import { updateProject } from "../../lib/db/projects";
-import type { ProjectImageRow, ProjectKind } from "../../lib/db/types";
+import type { StaticPhoto } from "../../lib/content/staticCatalog";
+import type { CorporateCategory, ProjectImageRow, ProjectKind } from "../../lib/db/types";
 import {
   ALLOWED_IMAGE_TYPES,
   managedAssetPaths,
@@ -26,7 +27,7 @@ import {
   uploadOptimizedPhotograph,
 } from "../../lib/uploadPhotograph";
 import { reorderProjectImages } from "../../lib/db/reorder";
-import { Button, ErrorNote, TextInput, Toggle } from "./Form";
+import { Button, ErrorNote, Field, TextInput, Toggle } from "./Form";
 import { OptimizeReport, StoredOptimizeNote, type InflightUpload } from "./OptimizeReport";
 import { DragHandle, SortableList } from "./SortableList";
 import { SourceBadge, Thumb } from "./Thumb";
@@ -39,13 +40,15 @@ interface Props {
   projectId: string;
   slug: string;
   kind: ProjectKind;
+  corporateCategory?: CorporateCategory | null;
+  staticSlots?: StaticPhoto[];
   coverImageId: string | null;
   onCoverChange: (id: string | null) => void;
   onCountChange?: (count: number) => void;
 }
 
 const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager(
-  { projectId, slug, kind, coverImageId, onCoverChange, onCountChange },
+  { projectId, slug, kind, corporateCategory, staticSlots = [], coverImageId, onCoverChange, onCountChange },
   ref
 ) {
   const [images, setImages] = useState<ProjectImageRow[]>([]);
@@ -281,6 +284,8 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
           the static fallback as a whole — leftover Unsplash plates do not stay
           on the public project. The original file stays on your computer. Drag
           the handle to reorder. JPEG, PNG, WebP or AVIF, up to 50 MB.
+          {(kind === "corporate" || kind === "flycam") &&
+            " Labels under each photograph are what visitors see; empty fields keep the static fallback shown as the placeholder."}
         </p>
       </header>
 
@@ -420,6 +425,36 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
                       </div>
                     </div>
                     <div className="space-y-3 p-3">
+                      {displayFields(kind, corporateCategory).map((field) => {
+                        const placeholder = slotValue(staticSlots[index], field.key);
+                        const current = row[field.key] ?? "";
+                        return (
+                          <Field
+                            key={field.key}
+                            label={field.label}
+                            hint={
+                              !current.trim() && placeholder
+                                ? `Current public: ${placeholder}`
+                                : "Empty keeps the current public fallback."
+                            }
+                          >
+                            <TextInput
+                              value={current}
+                              placeholder={placeholder}
+                              onChange={(value) =>
+                                setImages((items) =>
+                                  items.map((item) =>
+                                    item.id === row.id ? { ...item, [field.key]: value } : item
+                                  )
+                                )
+                              }
+                              onBlur={(value) =>
+                                void savePatch(row.id, { [field.key]: emptyToNull(value) })
+                              }
+                            />
+                          </Field>
+                        );
+                      })}
                       <label className="block space-y-1">
                         <span className="text-xs tracking-wide text-neutral-500 uppercase">
                           Alt text
@@ -519,3 +554,49 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
 });
 
 export default ImageManager;
+
+type DisplayKey = "display_title" | "display_subtitle" | "display_year" | "display_label";
+
+function displayFields(
+  kind: ProjectKind,
+  corporateCategory?: CorporateCategory | null
+): { key: DisplayKey; label: string }[] {
+  if (kind === "corporate") {
+    const title =
+      corporateCategory === "event"
+        ? "Event / Client name"
+        : corporateCategory === "team"
+          ? "Client / Team name"
+          : "Name / Client";
+    const subtitle =
+      corporateCategory === "event" || corporateCategory === "team"
+        ? "Category"
+        : "Role / Category";
+    return [
+      { key: "display_title", label: title },
+      { key: "display_subtitle", label: subtitle },
+      { key: "display_year", label: "Year" },
+    ];
+  }
+  if (kind === "flycam") {
+    return [
+      { key: "display_title", label: "Location" },
+      { key: "display_subtitle", label: "Region" },
+      { key: "display_label", label: "Altitude" },
+    ];
+  }
+  return [];
+}
+
+function slotValue(slot: StaticPhoto | undefined, key: DisplayKey): string {
+  if (!slot) return "";
+  if (key === "display_title") return slot.displayTitle ?? "";
+  if (key === "display_subtitle") return slot.displaySubtitle ?? "";
+  if (key === "display_year") return slot.displayYear ?? "";
+  return slot.displayLabel ?? "";
+}
+
+function emptyToNull(value: string): string | null {
+  const next = value.trim();
+  return next ? next : null;
+}

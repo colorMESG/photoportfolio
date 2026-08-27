@@ -857,18 +857,19 @@ function mergeServices(fallback: ServiceItem[], rows: ServiceRow[]): ServiceItem
 function mergeGallery(fallback: GalleryImage[], rows: GalleryImageRow[]): GalleryImage[] {
   if (rows.length === 0) return fallback;
   const images: GalleryImage[] = [];
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const src = row.storage_path
       ? imageUrl(row.storage_path)
       : imageUrl(null, row.external_url);
     if (!src) continue;
+    const slot = fallback[index];
     images.push({
       id: row.id,
       src,
-      alt: row.alt || "",
-      caption: row.caption ?? undefined,
-      location: row.location ?? undefined,
-      year: row.year ?? undefined,
+      alt: nonEmpty(row.alt) || slot?.alt || "",
+      caption: nonEmpty(row.caption) || slot?.caption,
+      location: nonEmpty(row.location) || slot?.location,
+      year: nonEmpty(row.year) || slot?.year,
       focalPointX: row.focal_point_x,
       focalPointY: row.focal_point_y,
       order: row.sort_order,

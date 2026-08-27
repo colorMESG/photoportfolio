@@ -63,6 +63,10 @@ export interface ProjectImageRow extends ImageDerivativeFields {
   camera: string | null;
   lens: string | null;
   exposure: string | null;
+  display_title: string | null;
+  display_subtitle: string | null;
+  display_year: string | null;
+  display_label: string | null;
   created_at: string;
 }
 

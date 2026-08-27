@@ -24,6 +24,12 @@ export interface StaticPhoto {
   id: string;
   src: string;
   alt: string;
+  /** Public name / client / place currently rendered for this slot. */
+  displayTitle?: string;
+  /** Public role / category / region currently rendered for this slot. */
+  displaySubtitle?: string;
+  displayYear?: string;
+  displayLabel?: string;
 }
 
 export interface StaticProjectRef {
@@ -37,9 +43,34 @@ function photosFromProject(
   slug: string,
   kind: ProjectKind,
   title: string,
-  images: { id: string; src: string; alt: string }[]
+  images: Array<{
+    id: string;
+    src: string;
+    alt: string;
+    client?: string;
+    category?: string;
+    year?: string;
+    title?: string;
+    region?: string;
+    altitude?: string;
+    location?: string;
+    caption?: string;
+  }>
 ): StaticProjectRef {
-  return { slug, kind, title, images: images.map(({ id, src, alt }) => ({ id, src, alt })) };
+  return {
+    slug,
+    kind,
+    title,
+    images: images.map((image) => ({
+      id: image.id,
+      src: image.src,
+      alt: image.alt,
+      displayTitle: image.client ?? image.title ?? image.location,
+      displaySubtitle: image.category ?? image.region,
+      displayYear: image.year,
+      displayLabel: image.altitude,
+    })),
+  };
 }
 
 const photography: StaticProjectRef[] = [
@@ -120,5 +151,7 @@ export const staticGalleryPhotos: StaticPhoto[] = personalGallery.map((image) =>
   id: image.id,
   src: image.src,
   alt: image.alt,
-  // location/year stay on the public image; the admin only needs a recognizable plate.
+  displayTitle: image.location,
+  displayYear: image.year,
+  displayLabel: image.caption,
 }));

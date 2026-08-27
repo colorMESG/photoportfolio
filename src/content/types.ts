@@ -28,6 +28,14 @@ export interface ProjectImage {
   featured?: boolean;
   /** Index into `exifPresets`; selects the camera data revealed on hover. */
   exifIdx?: number;
+  /** Public name / client / place. Distinct from `alt`. */
+  displayTitle?: string;
+  /** Public role / category / region. */
+  displaySubtitle?: string;
+  /** Public year on the photograph card. */
+  displayYear?: string;
+  /** Optional extra public label (e.g. altitude). */
+  displayLabel?: string;
 }
 
 export interface GalleryImage extends ProjectImage {

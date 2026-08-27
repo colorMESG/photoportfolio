@@ -48,7 +48,24 @@ export function toPublicImage(row: ProjectImageRow): ProjectImage | null {
     focalPointY: row.focal_point_y,
     order: row.sort_order,
     featured: row.featured,
+    displayTitle: nonempty(row.display_title),
+    displaySubtitle: nonempty(row.display_subtitle),
+    displayYear: nonempty(row.display_year),
+    displayLabel: nonempty(row.display_label),
   };
+}
+
+function nonempty(value: string | null | undefined): string | undefined {
+  const next = value?.trim();
+  return next ? next : undefined;
+}
+
+function firstText(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const next = value?.trim();
+    if (next) return next;
+  }
+  return "";
 }
 
 export function resolveCover(managed: ManagedProject | null, staticFallback?: ProjectImage): ProjectImage | undefined {
@@ -98,9 +115,15 @@ export function overlayCorporateList(
       id: image.id,
       src: image.src,
       alt: image.alt || slot?.alt || "",
-      category: slot?.category ?? fallback[0]?.category ?? "",
-      client: slot?.client ?? managed.project.client ?? managed.project.title,
-      year: slot?.year ?? managed.project.year ?? fallback[0]?.year,
+      category: firstText(image.displaySubtitle, slot?.category) || "",
+      client:
+        firstText(
+          image.displayTitle,
+          slot?.client,
+          managed.project.client,
+          managed.project.title
+        ) || "",
+      year: firstText(image.displayYear, slot?.year, managed.project.year) || undefined,
       focalPointX: image.focalPointX,
       focalPointY: image.focalPointY,
     };
@@ -126,8 +149,16 @@ export function overlayCorporateItem(
     id: image.id,
     src: image.src,
     alt: image.alt || fallback.alt,
-    client: managed.project.client || managed.project.title || fallback.client,
-    year: managed.project.year || fallback.year,
+    category: firstText(image.displaySubtitle, fallback.category) || fallback.category,
+    client:
+      firstText(
+        image.displayTitle,
+        fallback.client,
+        managed.project.client,
+        managed.project.title
+      ) || fallback.client,
+    year:
+      firstText(image.displayYear, fallback.year, managed.project.year) || fallback.year,
     focalPointX: image.focalPointX,
     focalPointY: image.focalPointY,
   };
@@ -154,9 +185,9 @@ export function overlayAerial(
     id: image.id,
     src: image.src,
     alt: image.alt || fallback.alt,
-    title: project.title || fallback.title,
-    region: project.location || fallback.region,
-    altitude: project.altitude || fallback.altitude,
+    title: firstText(image.displayTitle, project.title, fallback.title) || fallback.title,
+    region: firstText(image.displaySubtitle, project.location, fallback.region) || fallback.region,
+    altitude: firstText(image.displayLabel, project.altitude, fallback.altitude) || fallback.altitude,
     coordinates: project.coordinates || fallback.coordinates,
   };
 }

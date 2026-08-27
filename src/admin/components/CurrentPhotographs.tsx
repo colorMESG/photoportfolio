@@ -61,6 +61,13 @@ export function CurrentPhotographs({
                 )}
               </div>
               <p className="truncate text-xs text-neutral-500">{photo.alt || "Untitled"}</p>
+              {(photo.displayTitle || photo.displaySubtitle || photo.displayYear) && (
+                <p className="truncate text-[11px] text-neutral-600">
+                  {[photo.displayTitle, photo.displaySubtitle, photo.displayYear]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
             </li>
           ))}
         </ul>

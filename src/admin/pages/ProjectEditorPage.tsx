@@ -216,6 +216,8 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
             projectId={id}
             slug={draft.slug}
             kind={kind}
+            corporateCategory={draft.corporate_category}
+            staticSlots={currentPhotos}
             coverImageId={draft.cover_image_id}
             onCoverChange={(coverId) => patch("cover_image_id", coverId)}
             onCountChange={setManagedCount}

@@ -6,6 +6,12 @@ function describe(error: { code?: string; message: string }): string {
   if (error.code === "42501" || /row-level security/i.test(error.message)) {
     return "The database refused this write. The signed-in account is not an administrator.";
   }
+  if (
+    error.code === "42703" ||
+    /display_title|display_subtitle|display_year|display_label/i.test(error.message)
+  ) {
+    return "Photograph display fields are missing. Run supabase/migrations/0007_project_image_display_metadata.sql in the SQL Editor.";
+  }
   return error.message;
 }
 
@@ -42,6 +48,10 @@ export async function insertProjectImage(
         | "source_bytes"
         | "web_bytes"
         | "thumbnail_bytes"
+        | "display_title"
+        | "display_subtitle"
+        | "display_year"
+        | "display_label"
       >
     >
 ): Promise<Result<ProjectImageRow>> {
@@ -62,6 +72,7 @@ export async function updateProjectImage(
       | "storage_path" | "thumbnail_path" | "original_filename"
       | "source_width" | "source_height" | "source_bytes"
       | "width" | "height" | "web_bytes" | "thumbnail_bytes"
+      | "display_title" | "display_subtitle" | "display_year" | "display_label"
     >
   >
 ): Promise<Result<ProjectImageRow>> {

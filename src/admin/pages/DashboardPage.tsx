@@ -75,9 +75,11 @@ export default function DashboardPage() {
         Page copy uses{" "}
         <code className="text-neutral-400">Save Draft</code> then{" "}
         <code className="text-neutral-400">Publish</code>. Run{" "}
-        <code className="text-neutral-400">supabase/migrations/0005_content_publish.sql</code>{" "}
-        then{" "}
-        <code className="text-neutral-400">0006_image_derivatives.sql</code>{" "}
+        <code className="text-neutral-400">supabase/migrations/0005_content_publish.sql</code>
+        {", "}
+        <code className="text-neutral-400">0006_image_derivatives.sql</code>
+        {", then "}
+        <code className="text-neutral-400">0007_project_image_display_metadata.sql</code>{" "}
         in the SQL Editor. Photographs are optimized in the browser before
         upload — originals are not stored on the Free plan. Until 0005 is
         applied, drafts share the live{" "}

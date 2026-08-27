@@ -327,7 +327,7 @@ export default function GalleryPage() {
           }}
           onError={setError}
           className="space-y-4"
-          renderItem={(row, { handleProps, dragging }) => (
+          renderItem={(row, { handleProps, dragging, index }) => (
             <article
               className={`grid gap-4 border border-neutral-800 bg-neutral-900/30 p-3 sm:grid-cols-[auto_140px_1fr] ${
                 dragging ? "opacity-60" : ""
@@ -356,22 +356,35 @@ export default function GalleryPage() {
                   Caption
                   <TextInput
                     value={row.caption ?? ""}
-                    onChange={(v) => void savePatch(row.id, { caption: v || null })}
+                    placeholder={staticGalleryPhotos[index]?.displayLabel}
+                    onChange={(v) => void savePatch(row.id, { caption: v.trim() ? v : null })}
                   />
                 </label>
                 <label className="block space-y-1 text-xs text-neutral-400">
                   Location
                   <TextInput
                     value={row.location ?? ""}
-                    onChange={(v) => void savePatch(row.id, { location: v || null })}
+                    placeholder={staticGalleryPhotos[index]?.displayTitle}
+                    onChange={(v) => void savePatch(row.id, { location: v.trim() ? v : null })}
                   />
+                  {!row.location?.trim() && staticGalleryPhotos[index]?.displayTitle && (
+                    <span className="block text-[11px] text-neutral-600">
+                      Current public: {staticGalleryPhotos[index]?.displayTitle}
+                    </span>
+                  )}
                 </label>
                 <label className="block space-y-1 text-xs text-neutral-400">
                   Year
                   <TextInput
                     value={row.year ?? ""}
-                    onChange={(v) => void savePatch(row.id, { year: v || null })}
+                    placeholder={staticGalleryPhotos[index]?.displayYear}
+                    onChange={(v) => void savePatch(row.id, { year: v.trim() ? v : null })}
                   />
+                  {!row.year?.trim() && staticGalleryPhotos[index]?.displayYear && (
+                    <span className="block text-[11px] text-neutral-600">
+                      Current public: {staticGalleryPhotos[index]?.displayYear}
+                    </span>
+                  )}
                 </label>
                 <Toggle
                   checked={row.published}
