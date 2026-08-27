@@ -48,7 +48,9 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const imagesRef = useRef<ImageManagerHandle>(null);
+  const [managedCount, setManagedCount] = useState(0);
   const currentPhotos = draft ? staticProject(kind, draft.slug)?.images ?? [] : [];
+  const fallbackInactive = Boolean(draft?.published && managedCount > 0);
 
   useEffect(() => {
     let alive = true;
@@ -200,6 +202,7 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
         <div className="mb-12 space-y-10">
           <CurrentPhotographs
             photos={currentPhotos}
+            inactive={fallbackInactive}
             onUpload={() => {
               document.getElementById("managed-photographs")?.scrollIntoView({
                 behavior: "smooth",
@@ -215,6 +218,7 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
             kind={kind}
             coverImageId={draft.cover_image_id}
             onCoverChange={(coverId) => patch("cover_image_id", coverId)}
+            onCountChange={setManagedCount}
           />
         </div>
       )}

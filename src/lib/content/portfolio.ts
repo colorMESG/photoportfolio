@@ -2,10 +2,14 @@
  * Public project photography resolution.
  *
  * First paint is the static snapshot in `src/content/`. After mount, published
- * Supabase projects overlay that snapshot, matched by `kind + slug`. A project
- * with no managed photographs keeps its static set — a row alone never blanks
- * a gallery. When managed photographs exist they replace the static set for
- * that project; the two are not mixed.
+ * Supabase projects overlay that snapshot, matched by `kind + slug`.
+ *
+ * Photographs are exclusive, never mixed or padded:
+ *   published managed photographs exist → render that set only
+ *   none → render the static fallback set
+ *
+ * Deleting every managed photograph restores the static fallback. Static
+ * files in `src/content/` are never written or removed.
  *
  * Fetches PostgREST directly so supabase-js stays out of the public bundle.
  */
@@ -52,7 +56,7 @@ export function resolveCover(managed: ManagedProject | null, staticFallback?: Pr
   const byId = managed.project.cover_image_id
     ? managed.images.find((image) => image.id === managed.project.cover_image_id)
     : undefined;
-  return byId ?? managed.images[0] ?? staticFallback;
+  return byId ?? managed.images[0];
 }
 
 export function overlayPhotography(
@@ -72,10 +76,10 @@ export function overlayPhotography(
   if (images.length === 0) return next;
   return {
     ...next,
-    coverImage: resolveCover(managed, fallback.coverImage ?? fallback.images[0]),
+    coverImage: resolveCover(managed),
     images: images.map((image, index) => ({
       ...image,
-      exifIdx: fallback.images[index]?.exifIdx ?? 0,
+      exifIdx: image.exifIdx ?? fallback.images[index]?.exifIdx ?? 0,
     })),
   };
 }

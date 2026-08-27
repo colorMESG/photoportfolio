@@ -41,10 +41,11 @@ interface Props {
   kind: ProjectKind;
   coverImageId: string | null;
   onCoverChange: (id: string | null) => void;
+  onCountChange?: (count: number) => void;
 }
 
 const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager(
-  { projectId, slug, kind, coverImageId, onCoverChange },
+  { projectId, slug, kind, coverImageId, onCoverChange, onCountChange },
   ref
 ) {
   const [images, setImages] = useState<ProjectImageRow[]>([]);
@@ -69,6 +70,10 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    onCountChange?.(images.length);
+  }, [images.length, onCountChange]);
 
   useEffect(() => {
     const urls = previewUrls.current;
@@ -272,9 +277,10 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
       <header className="space-y-1">
         <h2 className="text-xl font-medium text-neutral-100">Managed photographs</h2>
         <p className="text-sm text-neutral-500">
-          Uploads stored in Supabase as optimized WebP. The original file stays on your
-          computer. Drag the handle to reorder — cover and featured stay put. JPEG, PNG,
-          WebP or AVIF, up to 50 MB.
+          Uploads stored in Supabase as optimized WebP. Publishing them replaces
+          the static fallback as a whole — leftover Unsplash plates do not stay
+          on the public project. The original file stays on your computer. Drag
+          the handle to reorder. JPEG, PNG, WebP or AVIF, up to 50 MB.
         </p>
       </header>
 

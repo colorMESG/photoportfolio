@@ -20,9 +20,9 @@ const PortfolioContext = createContext<PortfolioOverlays>({});
  * Supplies published project photographs to the public portfolio.
  *
  * The first render is the static snapshot, so there is no spinner and no layout
- * jump. A managed overlay is applied when a published project exists. Photographs
- * replace the static set only when managed images are present — an empty row
- * never blanks a gallery.
+ * jump. A published project with managed photographs replaces the static set
+ * entirely. Zero managed photographs keeps the static fallback — the two are
+ * never mixed.
  */
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [overlays, setOverlays] = useState<PortfolioOverlays>({});

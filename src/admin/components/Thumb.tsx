@@ -62,7 +62,14 @@ export function Thumb({
 export function SourceBadge({
   source,
 }: {
-  source: "static" | "supabase" | "static-current" | "supabase-new" | "managed-supabase";
+  source:
+    | "static"
+    | "supabase"
+    | "static-current"
+    | "supabase-new"
+    | "managed-supabase"
+    | "fallback-live"
+    | "fallback-inactive";
 }) {
   const label = {
     static: "STATIC",
@@ -70,12 +77,16 @@ export function SourceBadge({
     "static-current": "CURRENT · STATIC",
     "supabase-new": "NEW · SUPABASE",
     "managed-supabase": "MANAGED · SUPABASE",
+    "fallback-live": "FALLBACK · LIVE",
+    "fallback-inactive": "FALLBACK · NOT LIVE",
   }[source];
 
   const tone =
     source === "supabase" || source === "supabase-new"
       ? "border-emerald-900/70 bg-emerald-950/50 text-emerald-300"
-      : "border-neutral-700 bg-neutral-950/70 text-neutral-300";
+      : source === "fallback-inactive"
+        ? "border-amber-900/70 bg-amber-950/40 text-amber-300"
+        : "border-neutral-700 bg-neutral-950/70 text-neutral-300";
 
   return (
     <span

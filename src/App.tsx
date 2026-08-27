@@ -32,6 +32,34 @@ function imgPos(image?: Pick<ProjectImage, "focalPointX" | "focalPointY">) {
   return image ? managedObjectPosition(image.focalPointX, image.focalPointY) : undefined;
 }
 
+function PhotoOverflow({
+  images,
+  onImgHover,
+  onImgLeave,
+}: {
+  images: ProjectImage[];
+} & HP) {
+  if (images.length === 0) return null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+      {images.map((img, i) => (
+        <Reveal key={img.id} delay={i * 80}>
+          <Photo
+            src={img.src}
+            alt={img.alt}
+            className="w-full"
+            style={{ aspectRatio: "3/4" }}
+            onHover={onImgHover}
+            onLeave={onImgLeave}
+            exifIdx={img.exifIdx}
+            objectPosition={imgPos(img)}
+          />
+        </Reveal>
+      ))}
+    </div>
+  );
+}
+
 type HP = { onImgHover: () => void; onImgLeave: () => void };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -494,6 +522,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
           {p1a && <Reveal><Photo src={p1a.src} alt={p1a.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1a.exifIdx} objectPosition={imgPos(p1a)} /></Reveal>}
           {p1b && <Reveal delay={160} className="md:mt-32"><Photo src={p1b.src} alt={p1b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p1b.exifIdx} objectPosition={imgPos(p1b)} /></Reveal>}
         </div>
+        <PhotoOverflow images={study.images.slice(2)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
       </div>
       <div className="mt-24 bg-[#0a0a0a] py-20 px-8 md:px-14">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{location.displayNumber}</Lbl><div><Lbl light>{location.title}</Lbl><Lbl light>{location.year}</Lbl></div></Reveal>
@@ -501,6 +530,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
           {p2a && <Reveal className="w-full md:w-[68%]"><Photo src={p2a.src} alt={p2a.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2a.exifIdx} objectPosition={imgPos(p2a)} /></Reveal>}
           {p2b && <Reveal delay={140} className="w-full md:w-[30%]"><Photo src={p2b.src} alt={p2b.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2b.exifIdx} objectPosition={imgPos(p2b)} /></Reveal>}
         </div>
+        <PhotoOverflow images={location.images.slice(2)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
         <Reveal delay={200} className="mt-8"><ScrambleText text={ghost.locationSeries} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
@@ -518,6 +548,9 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
             </div>
           </Reveal>
         )}
+        <div className="px-4 md:px-8">
+          <PhotoOverflow images={veil.images.slice(1)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
+        </div>
       </div>
       <div className="mt-24 px-8 md:px-14 pb-24">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl>{frag.displayNumber}</Lbl><div><Lbl>{frag.title}</Lbl><Lbl>{frag.year}</Lbl></div></Reveal>
@@ -526,6 +559,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
           {p5b && <Reveal delay={120} className="md:mt-16"><Photo src={p5b.src} alt={p5b.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5b.exifIdx} objectPosition={imgPos(p5b)} /></Reveal>}
           {p5c && <Reveal delay={220} className="md:mt-40"><Photo src={p5c.src} alt={p5c.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p5c.exifIdx} objectPosition={imgPos(p5c)} /></Reveal>}
         </div>
+        <PhotoOverflow images={frag.images.slice(3)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
       </div>
     </section>
   );
@@ -860,6 +894,9 @@ function RosieStory({ onImgHover, onImgLeave }: HP) {
       <div className="px-8 md:px-14 my-6 grid grid-cols-2 gap-3 md:gap-6">{[r4a,r4b].filter(Boolean).map((img,i)=><Reveal key={img.id} delay={i*120}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}</div>
       <div className="px-8 md:px-20 my-16 grid grid-cols-3 gap-2 md:gap-5">{[r5a,r5b,r5c].filter(Boolean).map((img,i)=><Reveal key={img.id} delay={i*90}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}</div>
       {r6 && <Reveal className="px-4 md:px-8"><Photo src={r6.src} alt={r6.alt} className="w-full" style={{ aspectRatio:"21/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={r6.exifIdx} objectPosition={imgPos(r6)} /></Reveal>}
+      <div className="px-8 md:px-14">
+        <PhotoOverflow images={rosie.images.slice(9)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
+      </div>
     </section>
   );
 }

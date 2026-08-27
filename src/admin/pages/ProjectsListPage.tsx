@@ -243,19 +243,23 @@ function ProjectRow({
             {row.published ? "Published" : "Draft"}
           </Badge>
           <span>{countLabel}</span>
-          {hasManaged ? (
+          {hasManaged && row.published ? (
             <SourceBadge source="supabase-new" />
+          ) : hasManaged ? (
+            <SourceBadge source="managed-supabase" />
           ) : staticPhotos.length > 0 ? (
-            <SourceBadge source="static-current" />
+            <SourceBadge source="fallback-live" />
           ) : null}
         </div>
         <p className="mt-1 text-xs text-neutral-600">
           Current source:{" "}
-          {hasManaged
-            ? "Supabase — intended to replace the static placeholders"
-            : staticPhotos.length > 0
-              ? "Static placeholder"
-              : "None"}
+          {hasManaged && row.published
+            ? `Live managed set (${managed.length}) · static fallback inactive`
+            : hasManaged
+              ? `Managed draft (${managed.length}) · public still uses static fallback`
+              : staticPhotos.length > 0
+                ? `Static fallback (${staticPhotos.length})`
+                : "None"}
         </p>
       </div>
 

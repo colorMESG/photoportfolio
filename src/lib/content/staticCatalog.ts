@@ -3,8 +3,9 @@
  * as the seeded `projects` rows.
  *
  * This is a reference for the admin, not a migration. Nothing here is written
- * to Supabase — the Unsplash placeholders stay in `src/content/` until they
- * are replaced by real uploads.
+ * to Supabase. When a published project has managed photographs, the public
+ * site renders that set only — these Unsplash plates stay in `src/content/`
+ * as fallback and are not mixed in.
  */
 
 import { events, headshots, teams } from "../../content/corporate";
