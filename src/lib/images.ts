@@ -1,19 +1,19 @@
 import { supabaseUrl } from "./env";
 import type { ProjectKind } from "./db/types";
+import { companionThumbPath, companionWebPath } from "./optimizeImage";
 
 /**
  * Public delivery and validation for photographs.
  *
- * The database stores a `storage_path` (or, during migration, an `external_url`),
- * never a full CDN URL. That keeps a later switch to Supabase image
- * transformation — `/storage/v1/render/image/public/portfolio/<path>?width=…` —
- * as a one-line change here rather than a data migration. Crops are never baked
- * into the path; `object-position` is derived from focal-point percentages.
+ * The database stores a `storage_path` (optimized WebP web master) and a
+ * `thumbnail_path`. Crops are never baked into the file; `object-position` is
+ * derived from focal-point percentages. Supabase Image Transformations are
+ * not used — this project runs on the Free plan.
  */
 
 export const PORTFOLIO_BUCKET = "portfolio";
 
-/** 50 MiB. Matches the default Supabase file-size limit; originals are not resized. */
+/** 50 MiB source cap. The original is processed in the browser and not uploaded. */
 export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 
 export const ALLOWED_IMAGE_TYPES = [
@@ -49,38 +49,65 @@ export function validateImageFile(file: File): string | null {
   const typeOk =
     (ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type) || ext !== null;
   if (!typeOk) {
-    return `${file.name}: use JPEG, PNG, WebP or AVIF.`;
+    return `${file.name}: use JPEG, PNG or WebP. AVIF is accepted when this browser can decode it.`;
   }
   if (file.size > MAX_IMAGE_BYTES) {
     const mb = (file.size / (1024 * 1024)).toFixed(1);
-    return `${file.name} is ${mb} MB. The limit is 50 MB, and originals are not compressed.`;
+    return `${file.name} is ${mb} MB. The source limit is 50 MB.`;
   }
   if (file.size === 0) return `${file.name} is empty.`;
   return null;
 }
 
-/** Folder + unique filename. UUIDs avoid collisions if two files share a name. */
-export function buildStoragePath(kind: ProjectKind, slug: string, file: File): string {
-  const ext = extensionFor(file) ?? "jpg";
-  const id = crypto.randomUUID();
+export interface DerivativePaths {
+  id: string;
+  web: string;
+  thumb: string;
+}
+
+function derivativePaths(folder: string, id = crypto.randomUUID()): DerivativePaths {
+  const safe = folder.replace(/^\/+|\/+$/g, "");
+  return {
+    id,
+    web: `${safe}/web/${id}.webp`,
+    thumb: `${safe}/thumb/${id}.webp`,
+  };
+}
+
+/** Immutable web + thumb paths for a project photograph. */
+export function buildProjectDerivativePaths(kind: ProjectKind, slug: string): DerivativePaths {
   const folder = PREFIX[kind];
   const safeSlug = slug || "untitled";
-  return `${folder}/${safeSlug}/${id}.${ext}`;
+  return derivativePaths(`${folder}/${safeSlug}`);
 }
 
 export type SiteImageSlot = "hero" | "about" | "contact" | "og" | "favicon";
 
-/** Originals under `site/<folder>/`. Used for page photographs and SEO assets. */
-export function buildSiteImagePath(slot: SiteImageSlot | string, file: File): string {
-  const ext = extensionFor(file) ?? "jpg";
-  const folder = slot.includes("/") ? slot : `site/${slot}`;
-  return `${folder}/${crypto.randomUUID()}.${ext}`;
+/** Immutable web + thumb paths under `site/<slot>` or a custom folder. */
+export function buildSiteDerivativePaths(slot: SiteImageSlot | string): DerivativePaths {
+  const folder = slot.includes("/") || slot.startsWith("site/") || slot === "gallery"
+    ? slot === "gallery"
+      ? "gallery"
+      : slot.includes("/")
+        ? slot
+        : `site/${slot}`
+    : `site/${slot}`;
+  return derivativePaths(folder);
+}
+
+/** @deprecated Prefer buildProjectDerivativePaths — kept for any leftover callers. */
+export function buildStoragePath(kind: ProjectKind, slug: string, _file?: File): string {
+  return buildProjectDerivativePaths(kind, slug).web;
+}
+
+/** @deprecated Prefer buildSiteDerivativePaths. */
+export function buildSiteImagePath(slot: SiteImageSlot | string, _file?: File): string {
+  return buildSiteDerivativePaths(slot).web;
 }
 
 /**
  * Object-position for a managed photograph. Centre (50/50) returns undefined so
  * the public site keeps the CSS default and stays pixel-identical to static.
- * Phase 9 will write other values; this is what will pick them up.
  */
 export function managedObjectPosition(
   focalX?: number | null,
@@ -95,7 +122,7 @@ export function managedObjectPosition(
 
 /**
  * Resolves a stored path or leftover external URL to something an <img> can load.
- * When a transform pipeline lands, this is the only function that should change.
+ * Never returns a Supabase Image Transformation URL.
  */
 export function imageUrl(storagePath: string | null, externalUrl?: string | null): string {
   if (externalUrl) return externalUrl;
@@ -105,11 +132,46 @@ export function imageUrl(storagePath: string | null, externalUrl?: string | null
   return `${base}/storage/v1/object/public/${PORTFOLIO_BUCKET}/${storagePath}`;
 }
 
+/** Admin-list URL: thumbnail first, then a derived companion, then the web asset. */
+export function thumbUrl(
+  storagePath: string | null | undefined,
+  thumbnailPath?: string | null,
+  externalUrl?: string | null
+): string {
+  if (thumbnailPath) return imageUrl(thumbnailPath);
+  const derived = companionThumbPath(storagePath);
+  if (derived) return imageUrl(derived);
+  return imageUrl(storagePath ?? null, externalUrl);
+}
+
+export function managedAssetPaths(
+  storagePath: string | null | undefined,
+  thumbnailPath?: string | null
+): string[] {
+  const paths = [
+    storagePath,
+    thumbnailPath,
+    companionThumbPath(storagePath),
+    companionWebPath(storagePath),
+    companionThumbPath(thumbnailPath),
+    companionWebPath(thumbnailPath),
+  ].filter((path): path is string => Boolean(path));
+  return [...new Set(paths)];
+}
+
+export function needsOptimization(
+  storagePath: string | null | undefined,
+  thumbnailPath?: string | null
+): boolean {
+  if (!storagePath) return false;
+  if (thumbnailPath) return false;
+  if (companionThumbPath(storagePath)) return false;
+  return true;
+}
+
 /**
- * A smaller URL for admin thumbnails. Unsplash placeholders keep their existing
- * web-sized query params, just reduced. Supabase originals go through image
- * transformation when the project has it enabled; the <Thumb> component falls
- * back to the original if that endpoint is unavailable.
+ * Admin preview URL. Unsplash placeholders keep their existing web-sized query
+ * params. Managed photographs are never sent through `/render/image`.
  */
 export function previewUrl(
   src: string,
@@ -129,20 +191,6 @@ export function previewUrl(
     } catch {
       return src;
     }
-  }
-
-  const objectMarker = `/storage/v1/object/public/${PORTFOLIO_BUCKET}/`;
-  const renderMarker = `/storage/v1/render/image/public/${PORTFOLIO_BUCKET}/`;
-  if (src.includes(objectMarker)) {
-    const rendered = src.replace(objectMarker, renderMarker);
-    const join = rendered.includes("?") ? "&" : "?";
-    return `${rendered}${join}width=${size.width}&height=${size.height}&resize=cover`;
-  }
-  if (src.includes(renderMarker)) return src;
-
-  if (!/^https?:\/\//i.test(src)) {
-    const base = supabaseUrl.replace(/\/$/, "");
-    return `${base}/storage/v1/render/image/public/${PORTFOLIO_BUCKET}/${src}?width=${size.width}&height=${size.height}&resize=cover`;
   }
 
   return src;

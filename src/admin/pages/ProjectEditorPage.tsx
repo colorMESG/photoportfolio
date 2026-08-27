@@ -10,6 +10,7 @@ import {
   nextSortOrder,
   updateProject,
 } from "../../lib/db/projects";
+import { listProjectImages } from "../../lib/db/images";
 import {
   CORPORATE_CATEGORIES,
   type CorporateCategory,
@@ -17,6 +18,8 @@ import {
   type ProjectKind,
 } from "../../lib/db/types";
 import { slugify, uniqueSlug } from "../../lib/slug";
+import { managedAssetPaths } from "../../lib/images";
+import { deleteStoredObjects } from "../../lib/storage";
 import {
   Button,
   ErrorNote,
@@ -132,8 +135,13 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
       `Delete “${draft.title}”?\n\nIts photographs are removed from the database too. This cannot be undone.`
     );
     if (!ok) return;
+    const photos = await listProjectImages(id!);
+    const paths = (photos.data ?? []).flatMap((row) =>
+      managedAssetPaths(row.storage_path, row.thumbnail_path)
+    );
     const { error: err } = await deleteProject(id!);
     if (err) return setError(err);
+    await deleteStoredObjects(paths);
     navigate("..");
   }
 

@@ -10,15 +10,24 @@ import { updateProject } from "../../lib/db/projects";
 import type { ProjectImageRow, ProjectKind } from "../../lib/db/types";
 import {
   ALLOWED_IMAGE_TYPES,
-  buildStoragePath,
-  imageUrl,
+  managedAssetPaths,
+  needsOptimization,
   objectPosition,
-  readImageSize,
+  thumbUrl,
   validateImageFile,
 } from "../../lib/images";
-import { deleteStoredObject, uploadOriginal } from "../../lib/storage";
+import type { OptimizeStage } from "../../lib/optimizeImage";
+import { STAGE_LABEL } from "../../lib/optimizeImage";
+import { deleteStoredObjects } from "../../lib/storage";
+import {
+  derivativeColumns,
+  projectUploadPaths,
+  reoptimizeStoredPhotograph,
+  uploadOptimizedPhotograph,
+} from "../../lib/uploadPhotograph";
 import { reorderProjectImages } from "../../lib/db/reorder";
 import { Button, ErrorNote, TextInput, Toggle } from "./Form";
+import { OptimizeReport, StoredOptimizeNote, type InflightUpload } from "./OptimizeReport";
 import { DragHandle, SortableList } from "./SortableList";
 import { SourceBadge, Thumb } from "./Thumb";
 
@@ -34,22 +43,15 @@ interface Props {
   onCoverChange: (id: string | null) => void;
 }
 
-interface InFlight {
-  key: string;
-  name: string;
-  preview: string;
-  percent: number;
-  error: string | null;
-}
-
 const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager(
   { projectId, slug, kind, coverImageId, onCoverChange },
   ref
 ) {
   const [images, setImages] = useState<ProjectImageRow[]>([]);
-  const [inflight, setInflight] = useState<InFlight[]>([]);
+  const [inflight, setInflight] = useState<InflightUpload[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [optimizingAll, setOptimizingAll] = useState(false);
   const [fileOver, setFileOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrls = useRef<string[]>([]);
@@ -75,6 +77,16 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
     };
   }, []);
 
+  function patchInflight(key: string, patch: Partial<InflightUpload>) {
+    setInflight((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row))
+    );
+  }
+
+  function rememberPreview(url: string) {
+    previewUrls.current.push(url);
+  }
+
   async function handleFiles(list: FileList | File[]) {
     const files = Array.from(list);
     if (files.length === 0) return;
@@ -90,17 +102,15 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
     if (rejections.length) setError(rejections.join(" "));
     if (accepted.length === 0) return;
 
-    const pending: InFlight[] = accepted.map((file) => {
-      const preview = URL.createObjectURL(file);
-      previewUrls.current.push(preview);
-      return {
-        key: `${file.name}-${file.size}-${file.lastModified}-${preview}`,
-        name: file.name,
-        preview,
-        percent: 0,
-        error: null,
-      };
-    });
+    const pending: InflightUpload[] = accepted.map((file) => ({
+      key: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+      name: file.name,
+      preview: null,
+      stage: "preparing",
+      percent: 0,
+      error: null,
+      optimized: null,
+    }));
     setInflight((current) => [...current, ...pending]);
 
     let sort = await nextImageSortOrder(projectId);
@@ -108,72 +118,72 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
 
     for (let i = 0; i < accepted.length; i++) {
       const file = accepted[i];
+      accepted[i] = undefined as unknown as File;
       const item = pending[i];
-      const path = buildStoragePath(kind, slug, file);
+      const paths = projectUploadPaths(kind, slug);
 
-      const { error: uploadError } = await uploadOriginal(path, file, (progress) => {
-        setInflight((current) =>
-          current.map((row) =>
-            row.key === item.key ? { ...row, percent: progress.percent } : row
-          )
-        );
+      const { data, error: uploadError } = await uploadOptimizedPhotograph({
+        file,
+        paths,
+        onStage: (stage, extra) => {
+          patchInflight(item.key, {
+            stage,
+            percent: extra?.percent ?? 0,
+          });
+        },
       });
 
-      if (uploadError) {
-        setInflight((current) =>
-          current.map((row) =>
-            row.key === item.key ? { ...row, error: uploadError } : row
-          )
-        );
+      if (uploadError || !data) {
+        patchInflight(item.key, {
+          error: uploadError ?? "Optimization failed.",
+          stage: "preparing",
+        });
         continue;
       }
 
-      const size = await readImageSize(file);
-      const { data, error: insertError } = await insertProjectImage({
+      const thumbPreview = URL.createObjectURL(data.optimized.thumb);
+      rememberPreview(thumbPreview);
+      patchInflight(item.key, {
+        preview: thumbPreview,
+        optimized: data.optimized,
+        stage: "saving",
+      });
+
+      const { data: row, error: insertError } = await insertProjectImage({
         project_id: projectId,
-        storage_path: path,
         alt: "",
-        width: size?.width ?? null,
-        height: size?.height ?? null,
         sort_order: sort,
         featured: false,
         focal_point_x: 50,
         focal_point_y: 50,
+        ...derivativeColumns(data),
       });
       sort += 1;
 
-      if (insertError || !data) {
-        await deleteStoredObject(path);
-        setInflight((current) =>
-          current.map((row) =>
-            row.key === item.key
-              ? { ...row, error: insertError ?? "Could not save image metadata." }
-              : row
-          )
-        );
+      if (insertError || !row) {
+        await deleteStoredObjects([data.webPath, data.thumbPath]);
+        patchInflight(item.key, {
+          error: insertError ?? "Could not save image metadata.",
+        });
         continue;
       }
 
       if (!cover) {
         const { error: coverError } = await updateProject(projectId, {
-          cover_image_id: data.id,
+          cover_image_id: row.id,
         });
         if (!coverError) {
-          cover = data.id;
-          onCoverChange(data.id);
+          cover = row.id;
+          onCoverChange(row.id);
         }
       }
 
-      URL.revokeObjectURL(item.preview);
-      setInflight((current) => current.filter((row) => row.key !== item.key));
-      setImages((current) => [...current, data]);
+      setInflight((current) => current.filter((entry) => entry.key !== item.key));
+      setImages((current) => [...current, row]);
     }
   }
 
-  async function savePatch(
-    id: string,
-    patch: Parameters<typeof updateProjectImage>[1]
-  ) {
+  async function savePatch(id: string, patch: Parameters<typeof updateProjectImage>[1]) {
     const { data, error: err } = await updateProjectImage(id, patch);
     if (err) return setError(err);
     if (data) setImages((current) => current.map((row) => (row.id === id ? data : row)));
@@ -187,8 +197,56 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
     onCoverChange(id);
   }
 
+  async function optimizeRow(row: ProjectImageRow): Promise<string | null> {
+    if (!row.storage_path) return "That photograph has no stored file.";
+    const paths = projectUploadPaths(kind, slug);
+    const result = await reoptimizeStoredPhotograph({
+      storagePath: row.storage_path,
+      thumbnailPath: row.thumbnail_path,
+      originalFilename: row.original_filename,
+      paths,
+    });
+    if (result.error || !result.data) return result.error ?? "Optimization failed.";
+    const { data, error: err } = await updateProjectImage(row.id, derivativeColumns(result.data));
+    if (err || !data) {
+      await deleteStoredObjects([result.data.webPath, result.data.thumbPath]);
+      return err ?? "Could not save optimized metadata.";
+    }
+    await deleteStoredObjects(result.previousPaths);
+    setImages((current) => current.map((item) => (item.id === row.id ? data : item)));
+    return null;
+  }
+
+  async function optimizeExisting(row: ProjectImageRow) {
+    setBusyId(row.id);
+    setError(null);
+    const err = await optimizeRow(row);
+    setBusyId(null);
+    if (err) setError(err);
+  }
+
+  async function optimizeAllLegacy() {
+    const legacy = images.filter((row) => needsOptimization(row.storage_path, row.thumbnail_path));
+    if (legacy.length === 0) return;
+    const ok = window.confirm(
+      `Re-encode ${legacy.length} legacy photograph${legacy.length === 1 ? "" : "s"} into web + thumbnail WebP? The original Storage files are removed after each succeeds.`
+    );
+    if (!ok) return;
+    setOptimizingAll(true);
+    setError(null);
+    const failures: string[] = [];
+    for (const row of legacy) {
+      setBusyId(row.id);
+      const err = await optimizeRow(row);
+      if (err) failures.push(`${row.original_filename || row.alt || row.id}: ${err}`);
+    }
+    setBusyId(null);
+    setOptimizingAll(false);
+    if (failures.length) setError(failures.join(" "));
+  }
+
   async function remove(row: ProjectImageRow) {
-    const ok = window.confirm("Delete this photograph? The original file is removed too.");
+    const ok = window.confirm("Delete this photograph? The web and thumbnail files are removed too.");
     if (!ok) return;
     setBusyId(row.id);
     const { error: err } = await deleteProjectImage(row.id);
@@ -196,7 +254,7 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
       setBusyId(null);
       return setError(err);
     }
-    if (row.storage_path) await deleteStoredObject(row.storage_path);
+    await deleteStoredObjects(managedAssetPaths(row.storage_path, row.thumbnail_path));
     if (coverImageId === row.id) {
       onCoverChange(null);
       await updateProject(projectId, { cover_image_id: null });
@@ -205,15 +263,18 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
     setBusyId(null);
   }
 
+  const legacyCount = images.filter((row) =>
+    needsOptimization(row.storage_path, row.thumbnail_path)
+  ).length;
+
   return (
     <section id="managed-photographs" className="max-w-4xl space-y-5">
       <header className="space-y-1">
         <h2 className="text-xl font-medium text-neutral-100">Managed photographs</h2>
         <p className="text-sm text-neutral-500">
-          Uploads stored in Supabase. These are the photographs that will replace
-          the static placeholders. Drag the handle to reorder — cover and featured
-          stay put. JPEG, PNG, WebP or AVIF, up to 50 MB. Originals are not
-          compressed.
+          Uploads stored in Supabase as optimized WebP. The original file stays on your
+          computer. Drag the handle to reorder — cover and featured stay put. JPEG, PNG,
+          WebP or AVIF, up to 50 MB.
         </p>
       </header>
 
@@ -240,8 +301,13 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
           <p className="mb-3 text-sm text-neutral-400">No managed photographs yet.</p>
         )}
         <p className="text-sm text-neutral-300">Drop photographs here, or</p>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <Button onClick={() => inputRef.current?.click()}>Choose files</Button>
+          {legacyCount > 0 && (
+            <Button disabled={optimizingAll} onClick={() => void optimizeAllLegacy()}>
+              {optimizingAll ? "Optimizing…" : `Optimize all legacy images (${legacyCount})`}
+            </Button>
+          )}
         </div>
         <input
           ref={inputRef}
@@ -264,20 +330,29 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
               className="overflow-hidden border border-neutral-800 bg-neutral-900/40"
             >
               <div className="aspect-[4/5] bg-neutral-900">
-                <img src={item.preview} alt="" className="size-full object-cover" />
+                {item.preview ? (
+                  <img src={item.preview} alt="" className="size-full object-cover" />
+                ) : (
+                  <div className="flex size-full items-center justify-center px-4 text-center text-xs text-neutral-500">
+                    {STAGE_LABEL[item.stage as OptimizeStage]}
+                  </div>
+                )}
               </div>
               <div className="space-y-2 p-3">
-                <p className="truncate text-xs text-neutral-400">{item.name}</p>
-                <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
-                  <div
-                    className="h-full bg-neutral-200 transition-[width]"
-                    style={{ width: `${item.percent}%` }}
-                  />
-                </div>
-                {item.error ? (
-                  <p className="text-xs text-red-400">{item.error}</p>
-                ) : (
-                  <p className="text-xs text-neutral-500">{item.percent}%</p>
+                <OptimizeReport
+                  sourceName={item.name}
+                  stage={item.error ? null : item.stage}
+                  percent={item.percent}
+                  optimized={item.optimized}
+                  error={item.error}
+                />
+                {!item.error && (
+                  <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                    <div
+                      className="h-full bg-neutral-200 transition-[width]"
+                      style={{ width: `${Math.max(item.percent, 8)}%` }}
+                    />
+                  </div>
                 )}
               </div>
             </div>
@@ -302,8 +377,9 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
                 return null;
               }}
               renderItem={(row, { handleProps, dragging, index }) => {
-                const src = imageUrl(row.storage_path, row.external_url);
+                const src = thumbUrl(row.storage_path, row.thumbnail_path, row.external_url);
                 const isCover = coverImageId === row.id;
+                const legacy = needsOptimization(row.storage_path, row.thumbnail_path);
                 return (
                   <div
                     className={`overflow-hidden border bg-neutral-900/40 ${
@@ -374,9 +450,21 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
                           }
                         />
                       </label>
-                      <p className="text-xs text-neutral-600">
-                        {row.width && row.height ? `${row.width} × ${row.height}` : "Original"}
-                      </p>
+                      <StoredOptimizeNote
+                        filename={row.original_filename}
+                        sourceWidth={row.source_width}
+                        sourceHeight={row.source_height}
+                        sourceBytes={row.source_bytes}
+                        webWidth={row.width}
+                        webHeight={row.height}
+                        webBytes={row.web_bytes}
+                        thumbBytes={row.thumbnail_bytes}
+                      />
+                      {!row.source_width && row.width && row.height && (
+                        <p className="text-xs text-neutral-600">
+                          {row.width} × {row.height}
+                        </p>
+                      )}
                       <Toggle
                         checked={row.featured}
                         onChange={(value) => {
@@ -396,6 +484,14 @@ const ImageManager = forwardRef<ImageManagerHandle, Props>(function ImageManager
                         >
                           {isCover ? "Cover photo" : "Use as cover"}
                         </Button>
+                        {legacy && (
+                          <Button
+                            disabled={busyId === row.id || optimizingAll}
+                            onClick={() => void optimizeExisting(row)}
+                          >
+                            {busyId === row.id ? "Optimizing…" : "Optimize existing image"}
+                          </Button>
+                        )}
                         <Button
                           variant="danger"
                           disabled={busyId === row.id}

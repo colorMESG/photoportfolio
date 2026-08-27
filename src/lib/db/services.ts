@@ -33,7 +33,10 @@ export async function updateService(
   patch: Partial<
     Pick<
       ServiceRow,
-      "display_number" | "title" | "subtitle" | "storage_path" | "sort_order" | "published"
+      "display_number" | "title" | "subtitle" | "storage_path" | "thumbnail_path"
+      | "sort_order" | "published"
+      | "original_filename" | "source_width" | "source_height" | "source_bytes"
+      | "web_bytes" | "thumbnail_bytes"
     >
   >
 ): Promise<Result<ServiceRow>> {

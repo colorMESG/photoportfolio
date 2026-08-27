@@ -31,7 +31,21 @@ export async function insertGalleryImage(
     | "published"
     | "focal_point_x"
     | "focal_point_y"
-  >
+  > &
+    Partial<
+      Pick<
+        GalleryImageRow,
+        | "thumbnail_path"
+        | "original_filename"
+        | "source_width"
+        | "source_height"
+        | "source_bytes"
+        | "width"
+        | "height"
+        | "web_bytes"
+        | "thumbnail_bytes"
+      >
+    >
 ): Promise<Result<GalleryImageRow>> {
   const { data, error } = await requireSupabase()
     .from("gallery_images")
@@ -55,6 +69,16 @@ export async function updateGalleryImage(
       | "focal_point_x"
       | "focal_point_y"
       | "sort_order"
+      | "storage_path"
+      | "thumbnail_path"
+      | "original_filename"
+      | "source_width"
+      | "source_height"
+      | "source_bytes"
+      | "width"
+      | "height"
+      | "web_bytes"
+      | "thumbnail_bytes"
     >
   >
 ): Promise<Result<GalleryImageRow>> {

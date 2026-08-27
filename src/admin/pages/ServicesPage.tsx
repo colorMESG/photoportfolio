@@ -3,7 +3,7 @@ import { servicesContent } from "../../content/site";
 import ReplaceablePhotograph from "../components/ReplaceablePhotograph";
 import { Button, ErrorNote, Field, TextInput, Toggle } from "../components/Form";
 import { PageHeader, ViewOnSite } from "../components/PageHeader";
-import type { ContentImageDraft } from "../../lib/content/siteCopy";
+import { blankContentImage, type ContentImageDraft } from "../../lib/content/siteCopy";
 import {
   insertService,
   listServices,
@@ -11,17 +11,19 @@ import {
   updateService,
 } from "../../lib/db/services";
 import type { ServiceRow } from "../../lib/db/types";
-import { imageUrl } from "../../lib/images";
-import { deleteStoredObject } from "../../lib/storage";
+import { deleteStoredObjects } from "../../lib/storage";
 
-function imageDraft(path: string | null, alt: string): ContentImageDraft {
+function imageDraft(row: ServiceRow, alt: string): ContentImageDraft {
   return {
-    image_path: path,
-    image_alt: alt,
-    image_width: null,
-    image_height: null,
-    focal_point_x: 50,
-    focal_point_y: 50,
+    ...blankContentImage(alt),
+    image_path: row.storage_path,
+    image_thumb_path: row.thumbnail_path,
+    original_filename: row.original_filename,
+    source_width: row.source_width,
+    source_height: row.source_height,
+    source_bytes: row.source_bytes,
+    web_bytes: row.web_bytes,
+    thumbnail_bytes: row.thumbnail_bytes,
   };
 }
 
@@ -65,7 +67,11 @@ export default function ServicesPage() {
     void load();
   }, [load]);
 
-  async function patch(id: string, next: Parameters<typeof updateService>[1], orphanPath?: string) {
+  async function patch(
+    id: string,
+    next: Parameters<typeof updateService>[1],
+    orphanPaths?: string | string[]
+  ) {
     setStatus(null);
     const { data, error: err } = await updateService(id, next);
     if (err) {
@@ -73,9 +79,10 @@ export default function ServicesPage() {
       return;
     }
     if (data) setRows((current) => current.map((row) => (row.id === id ? data : row)));
-    if (orphanPath) {
-      setOrphans((current) => [...current, orphanPath]);
-      await deleteStoredObject(orphanPath);
+    const list = orphanPaths ? (Array.isArray(orphanPaths) ? orphanPaths : [orphanPaths]) : [];
+    if (list.length) {
+      setOrphans((current) => [...current, ...list]);
+      await deleteStoredObjects(list);
     }
   }
 
@@ -146,9 +153,22 @@ export default function ServicesPage() {
                 viewHref="/#services"
                 staticSrc={fallback?.previewSrc ?? ""}
                 staticAlt={fallback?.title ?? row.title}
-                image={imageDraft(row.storage_path, row.title)}
-                onChange={(image, orphan) =>
-                  void patch(row.id, { storage_path: image.image_path }, orphan)
+                image={imageDraft(row, fallback?.title ?? row.title)}
+                onChange={(image, orphans) =>
+                  void patch(
+                    row.id,
+                    {
+                      storage_path: image.image_path,
+                      thumbnail_path: image.image_thumb_path,
+                      original_filename: image.original_filename,
+                      source_width: image.source_width,
+                      source_height: image.source_height,
+                      source_bytes: image.source_bytes,
+                      web_bytes: image.web_bytes,
+                      thumbnail_bytes: image.thumbnail_bytes,
+                    },
+                    orphans
+                  )
                 }
               />
               <Toggle
@@ -158,7 +178,7 @@ export default function ServicesPage() {
                 hint="Unpublished services are hidden from visitors."
               />
               {row.storage_path && (
-                <p className="text-xs text-neutral-500">Stored at {imageUrl(row.storage_path)}</p>
+                <p className="text-xs text-neutral-500">Stored at {row.storage_path}</p>
               )}
             </section>
           );

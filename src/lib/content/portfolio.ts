@@ -27,8 +27,8 @@ export function projectKey(kind: ProjectKind, slug: string): string {
 }
 
 export function toPublicImage(row: ProjectImageRow): ProjectImage | null {
-  // Prefer the stored original. `external_url` is only a leftover placeholder
-  // from migration; a real upload should never lose to it.
+  // Public portfolio imagery uses the optimized WebP master (`storage_path`).
+  // `external_url` is only a leftover placeholder from migration.
   const src = row.storage_path
     ? imageUrl(row.storage_path)
     : imageUrl(null, row.external_url);

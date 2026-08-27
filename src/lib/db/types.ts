@@ -37,7 +37,17 @@ export interface ProjectRow {
 /** The subset a form may write. Server-managed columns are excluded. */
 export type ProjectDraft = Omit<ProjectRow, "id" | "created_at" | "updated_at">;
 
-export interface ProjectImageRow {
+export interface ImageDerivativeFields {
+  thumbnail_path: string | null;
+  original_filename: string | null;
+  source_width: number | null;
+  source_height: number | null;
+  source_bytes: number | null;
+  web_bytes: number | null;
+  thumbnail_bytes: number | null;
+}
+
+export interface ProjectImageRow extends ImageDerivativeFields {
   id: string;
   project_id: string;
   storage_path: string | null;
@@ -56,7 +66,7 @@ export interface ProjectImageRow {
   created_at: string;
 }
 
-export interface GalleryImageRow {
+export interface GalleryImageRow extends ImageDerivativeFields {
   id: string;
   storage_path: string | null;
   external_url: string | null;
@@ -64,6 +74,8 @@ export interface GalleryImageRow {
   caption: string | null;
   location: string | null;
   year: string | null;
+  width: number | null;
+  height: number | null;
   focal_point_x: number;
   focal_point_y: number;
   sort_order: number;
@@ -104,7 +116,7 @@ export interface ContentBlockRow {
   updated_at: string;
 }
 
-export interface ServiceRow {
+export interface ServiceRow extends ImageDerivativeFields {
   id: string;
   display_number: string | null;
   title: string;

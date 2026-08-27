@@ -14,7 +14,7 @@ import {
   publishContentDraft,
   saveContentDraft,
 } from "../../lib/db/siteContent";
-import { deleteStoredObject } from "../../lib/storage";
+import { deleteStoredObjects } from "../../lib/storage";
 
 function splitLines(value: string): string[] {
   return value.split("\n");
@@ -52,10 +52,17 @@ export default function ContentPage() {
     void reload();
   }, []);
 
-  function patch<K extends keyof ContentDraft>(key: K, value: ContentDraft[K], orphanPath?: string) {
+  function patch<K extends keyof ContentDraft>(
+    key: K,
+    value: ContentDraft[K],
+    orphanPaths?: string | string[]
+  ) {
     setStatus(null);
     setDraft((current) => ({ ...current, [key]: value }));
-    if (orphanPath) setOrphans((current) => [...current, orphanPath]);
+    if (orphanPaths) {
+      const list = Array.isArray(orphanPaths) ? orphanPaths : [orphanPaths];
+      if (list.length) setOrphans((current) => [...current, ...list]);
+    }
   }
 
   function cleaned(): ContentDraft {
@@ -176,7 +183,7 @@ export default function ContentPage() {
     setStatus(mode === "publish" ? "Published. Refresh the public site to see it." : "Draft saved. The public site is unchanged.");
     setUnpublished(mode !== "publish");
     if (orphans.length) {
-      await Promise.all(orphans.map((path) => deleteStoredObject(path)));
+      await deleteStoredObjects(orphans);
       setOrphans([]);
     }
     await reload();

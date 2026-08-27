@@ -12,33 +12,34 @@ import { reorderGalleryImages } from "../../lib/db/reorder";
 import type { GalleryImageRow } from "../../lib/db/types";
 import {
   ALLOWED_IMAGE_TYPES,
-  buildSiteImagePath,
-  imageUrl,
+  managedAssetPaths,
+  needsOptimization,
   objectPosition,
-  readImageSize,
+  thumbUrl,
   validateImageFile,
 } from "../../lib/images";
-import { deleteStoredObject, uploadOriginal } from "../../lib/storage";
+import { STAGE_LABEL } from "../../lib/optimizeImage";
+import { deleteStoredObjects } from "../../lib/storage";
+import {
+  derivativeColumns,
+  reoptimizeStoredPhotograph,
+  siteUploadPaths,
+  uploadOptimizedPhotograph,
+} from "../../lib/uploadPhotograph";
 import { Button, ErrorNote, TextInput, Toggle } from "../components/Form";
+import { OptimizeReport, StoredOptimizeNote, type InflightUpload } from "../components/OptimizeReport";
 import { PageHeader, ViewOnSite } from "../components/PageHeader";
 import { DragHandle, SortableList } from "../components/SortableList";
 import { SourceBadge, Thumb } from "../components/Thumb";
 
-interface InFlight {
-  key: string;
-  name: string;
-  preview: string;
-  percent: number;
-  error: string | null;
-}
-
 export default function GalleryPage() {
   const [images, setImages] = useState<GalleryImageRow[]>([]);
-  const [inflight, setInflight] = useState<InFlight[]>([]);
+  const [inflight, setInflight] = useState<InflightUpload[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [optimizingAll, setOptimizingAll] = useState(false);
   const [fileOver, setFileOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrls = useRef<string[]>([]);
@@ -60,6 +61,12 @@ export default function GalleryPage() {
     };
   }, []);
 
+  function patchInflight(key: string, patch: Partial<InflightUpload>) {
+    setInflight((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row))
+    );
+  }
+
   async function handleFiles(list: FileList | File[]) {
     const files = Array.from(list);
     if (files.length === 0) return;
@@ -76,39 +83,47 @@ export default function GalleryPage() {
     if (rejections.length) setError(rejections.join(" "));
     if (accepted.length === 0) return;
 
-    const pending: InFlight[] = accepted.map((file) => {
-      const preview = URL.createObjectURL(file);
-      previewUrls.current.push(preview);
-      return {
-        key: `${file.name}-${file.size}-${file.lastModified}-${preview}`,
-        name: file.name,
-        preview,
-        percent: 0,
-        error: null,
-      };
-    });
+    const pending: InflightUpload[] = accepted.map((file) => ({
+      key: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+      name: file.name,
+      preview: null,
+      stage: "preparing",
+      percent: 0,
+      error: null,
+      optimized: null,
+    }));
     setInflight((current) => [...current, ...pending]);
 
     let sort = await nextGallerySortOrder();
 
     for (let i = 0; i < accepted.length; i++) {
       const file = accepted[i];
+      accepted[i] = undefined as unknown as File;
       const item = pending[i];
-      const path = buildSiteImagePath("gallery", file);
-      const { error: uploadError } = await uploadOriginal(path, file, (progress) => {
-        setInflight((current) =>
-          current.map((row) => (row.key === item.key ? { ...row, percent: progress.percent } : row))
-        );
+      const paths = siteUploadPaths("gallery");
+      const { data, error: uploadError } = await uploadOptimizedPhotograph({
+        file,
+        paths,
+        onStage: (stage, extra) => {
+          patchInflight(item.key, { stage, percent: extra?.percent ?? 0 });
+        },
       });
-      if (uploadError) {
-        setInflight((current) =>
-          current.map((row) => (row.key === item.key ? { ...row, error: uploadError } : row))
-        );
+      if (uploadError || !data) {
+        patchInflight(item.key, {
+          error: uploadError ?? "Optimization failed.",
+        });
         continue;
       }
-      const size = await readImageSize(file);
-      const { data, error: insertError } = await insertGalleryImage({
-        storage_path: path,
+
+      const thumbPreview = URL.createObjectURL(data.optimized.thumb);
+      previewUrls.current.push(thumbPreview);
+      patchInflight(item.key, {
+        preview: thumbPreview,
+        optimized: data.optimized,
+        stage: "saving",
+      });
+
+      const { data: row, error: insertError } = await insertGalleryImage({
         alt: file.name.replace(/\.[^.]+$/, ""),
         caption: null,
         location: null,
@@ -118,16 +133,20 @@ export default function GalleryPage() {
         published: false,
         focal_point_x: 50,
         focal_point_y: 50,
+        ...derivativeColumns(data),
       });
       sort += 1;
-      URL.revokeObjectURL(item.preview);
-      setInflight((current) => current.filter((row) => row.key !== item.key));
-      if (insertError || !data) {
-        setError(insertError ?? "Could not save that photograph.");
+
+      if (insertError || !row) {
+        await deleteStoredObjects([data.webPath, data.thumbPath]);
+        patchInflight(item.key, {
+          error: insertError ?? "Could not save that photograph.",
+        });
         continue;
       }
-      void size;
-      setImages((current) => [...current, data]);
+
+      setInflight((current) => current.filter((entry) => entry.key !== item.key));
+      setImages((current) => [...current, row]);
     }
   }
 
@@ -137,8 +156,55 @@ export default function GalleryPage() {
     if (data) setImages((current) => current.map((row) => (row.id === id ? data : row)));
   }
 
+  async function optimizeRow(row: GalleryImageRow): Promise<string | null> {
+    if (!row.storage_path) return "That photograph has no stored file.";
+    const result = await reoptimizeStoredPhotograph({
+      storagePath: row.storage_path,
+      thumbnailPath: row.thumbnail_path,
+      originalFilename: row.original_filename,
+      paths: siteUploadPaths("gallery"),
+    });
+    if (result.error || !result.data) return result.error ?? "Optimization failed.";
+    const { data, error: err } = await updateGalleryImage(row.id, derivativeColumns(result.data));
+    if (err || !data) {
+      await deleteStoredObjects([result.data.webPath, result.data.thumbPath]);
+      return err ?? "Could not save optimized metadata.";
+    }
+    await deleteStoredObjects(result.previousPaths);
+    setImages((current) => current.map((item) => (item.id === row.id ? data : item)));
+    return null;
+  }
+
+  async function optimizeExisting(row: GalleryImageRow) {
+    setBusyId(row.id);
+    setError(null);
+    const err = await optimizeRow(row);
+    setBusyId(null);
+    if (err) setError(err);
+  }
+
+  async function optimizeAllLegacy() {
+    const legacy = images.filter((row) => needsOptimization(row.storage_path, row.thumbnail_path));
+    if (legacy.length === 0) return;
+    const ok = window.confirm(
+      `Re-encode ${legacy.length} legacy photograph${legacy.length === 1 ? "" : "s"} into web + thumbnail WebP?`
+    );
+    if (!ok) return;
+    setOptimizingAll(true);
+    setError(null);
+    const failures: string[] = [];
+    for (const row of legacy) {
+      setBusyId(row.id);
+      const err = await optimizeRow(row);
+      if (err) failures.push(`${row.original_filename || row.alt || row.id}: ${err}`);
+    }
+    setBusyId(null);
+    setOptimizingAll(false);
+    if (failures.length) setError(failures.join(" "));
+  }
+
   async function remove(row: GalleryImageRow) {
-    const ok = window.confirm("Delete this photograph? The original file is removed too.");
+    const ok = window.confirm("Delete this photograph? The web and thumbnail files are removed too.");
     if (!ok) return;
     setBusyId(row.id);
     const { error: err } = await deleteGalleryImage(row.id);
@@ -146,7 +212,7 @@ export default function GalleryPage() {
       setBusyId(null);
       return setError(err);
     }
-    if (row.storage_path) await deleteStoredObject(row.storage_path);
+    await deleteStoredObjects(managedAssetPaths(row.storage_path, row.thumbnail_path));
     setImages((current) => current.filter((item) => item.id !== row.id));
     setBusyId(null);
   }
@@ -164,6 +230,12 @@ export default function GalleryPage() {
     await load();
   }
 
+  const published = images.filter((row) => row.published);
+  const showingManaged = published.length > 0;
+  const legacyCount = images.filter((row) =>
+    needsOptimization(row.storage_path, row.thumbnail_path)
+  ).length;
+
   return (
     <>
       <PageHeader
@@ -174,6 +246,11 @@ export default function GalleryPage() {
             <ViewOnSite href="/#gallery" />
             {status && <span className="text-sm text-emerald-400">{status}</span>}
             <Button onClick={() => inputRef.current?.click()}>Upload photographs</Button>
+            {legacyCount > 0 && (
+              <Button disabled={optimizingAll} onClick={() => void optimizeAllLegacy()}>
+                {optimizingAll ? "Optimizing…" : `Optimize all legacy images (${legacyCount})`}
+              </Button>
+            )}
             <Button variant="primary" disabled={publishing || images.length === 0} onClick={() => void publish()}>
               {publishing ? "Publishing…" : "Publish gallery"}
             </Button>
@@ -190,13 +267,13 @@ export default function GalleryPage() {
       <section className="mb-10 space-y-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium text-neutral-200">Current website photographs</h2>
-          <SourceBadge source={images.some((row) => row.published) ? "managed-supabase" : "static-current"} />
+          <SourceBadge source={showingManaged ? "managed-supabase" : "static-current"} />
         </div>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {(images.some((row) => row.published)
-            ? images.filter((row) => row.published).map((row) => ({
+          {(showingManaged
+            ? published.map((row) => ({
                 id: row.id,
-                src: imageUrl(row.storage_path, row.external_url),
+                src: thumbUrl(row.storage_path, row.thumbnail_path, row.external_url),
                 alt: row.alt,
               }))
             : staticGalleryPhotos
@@ -208,7 +285,7 @@ export default function GalleryPage() {
                   <span className="bg-neutral-950/75 px-1.5 py-0.5 font-mono text-[10px] text-neutral-300">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <SourceBadge source={images.some((row) => row.published) ? "managed-supabase" : "static"} />
+                  <SourceBadge source={showingManaged ? "managed-supabase" : "static"} />
                 </div>
               </div>
               <p className="truncate text-xs text-neutral-400">{photo.alt}</p>
@@ -234,8 +311,10 @@ export default function GalleryPage() {
       >
         <h2 className="text-sm font-medium text-neutral-200">Managed photographs</h2>
         <p className="text-sm text-neutral-500">
-          New uploads stay unpublished until you Publish. Reorder with the handle. JPEG, PNG, WebP or
-          AVIF, up to 50 MB. The static Unsplash plates are never copied into Storage.
+          New uploads stay unpublished until you Publish. The browser writes a 2400px WebP
+          and a 480px thumbnail — the original is not stored. Reorder with the handle.
+          JPEG, PNG, WebP or AVIF, up to 50 MB. Static Unsplash plates are never copied
+          into Storage.
         </p>
 
         <SortableList
@@ -257,7 +336,7 @@ export default function GalleryPage() {
               <DragHandle {...handleProps} />
               <div className="relative aspect-[4/5] overflow-hidden bg-neutral-900">
                 <Thumb
-                  src={imageUrl(row.storage_path, row.external_url)}
+                  src={thumbUrl(row.storage_path, row.thumbnail_path, row.external_url)}
                   alt={row.alt}
                   width={280}
                   height={350}
@@ -299,7 +378,15 @@ export default function GalleryPage() {
                   onChange={(v) => void savePatch(row.id, { published: v })}
                   label="Published"
                 />
-                <div className="flex items-end">
+                <div className="flex flex-wrap items-end gap-2">
+                  {needsOptimization(row.storage_path, row.thumbnail_path) && (
+                    <Button
+                      disabled={busyId === row.id || optimizingAll}
+                      onClick={() => void optimizeExisting(row)}
+                    >
+                      {busyId === row.id ? "Optimizing…" : "Optimize existing image"}
+                    </Button>
+                  )}
                   <Button
                     variant="danger"
                     disabled={busyId === row.id}
@@ -307,6 +394,18 @@ export default function GalleryPage() {
                   >
                     Delete
                   </Button>
+                </div>
+                <div className="sm:col-span-2">
+                  <StoredOptimizeNote
+                    filename={row.original_filename}
+                    sourceWidth={row.source_width}
+                    sourceHeight={row.source_height}
+                    sourceBytes={row.source_bytes}
+                    webWidth={row.width}
+                    webHeight={row.height}
+                    webBytes={row.web_bytes}
+                    thumbBytes={row.thumbnail_bytes}
+                  />
                 </div>
               </div>
             </article>
@@ -316,17 +415,22 @@ export default function GalleryPage() {
         {inflight.map((item) => (
           <div key={item.key} className="flex items-center gap-4 border border-neutral-800 p-3">
             <div className="aspect-[4/5] w-20 overflow-hidden bg-neutral-900">
-              <Thumb src={item.preview} alt={item.name} width={160} height={200} className="size-full" eager />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-neutral-200">{item.name}</p>
-              {item.error ? (
-                <p className="text-xs text-red-400">{item.error}</p>
+              {item.preview ? (
+                <Thumb src={item.preview} alt={item.name} width={160} height={200} className="size-full" eager />
               ) : (
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-800">
-                  <div className="h-full bg-neutral-200" style={{ width: `${item.percent}%` }} />
+                <div className="flex size-full items-center justify-center px-1 text-center font-mono text-[10px] text-neutral-500">
+                  {STAGE_LABEL[item.stage]}
                 </div>
               )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <OptimizeReport
+                sourceName={item.name}
+                stage={item.error ? null : item.stage}
+                percent={item.percent}
+                optimized={item.optimized}
+                error={item.error}
+              />
             </div>
           </div>
         ))}

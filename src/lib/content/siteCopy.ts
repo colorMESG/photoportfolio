@@ -57,7 +57,7 @@ import type {
 } from "../../content/types";
 import type { ContentBlockRow, GalleryImageRow, ServiceRow, SiteSettingsRow } from "../db/types";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "../env";
-import { imageUrl } from "../images";
+import { imageUrl, thumbUrl } from "../images";
 
 export type HeroCopy = Omit<typeof heroContent, "image"> & { image: ProjectImage };
 export type StatementCopy = typeof statementContent;
@@ -120,11 +120,36 @@ export interface ManagedContent {
 /** Photograph fields stored on a content_block. Focal points land in Phase 9. */
 export interface ContentImageDraft {
   image_path: string | null;
+  image_thumb_path: string | null;
   image_alt: string;
   image_width: number | null;
   image_height: number | null;
   focal_point_x: number;
   focal_point_y: number;
+  original_filename: string | null;
+  source_width: number | null;
+  source_height: number | null;
+  source_bytes: number | null;
+  web_bytes: number | null;
+  thumbnail_bytes: number | null;
+}
+
+export function blankContentImage(alt = ""): ContentImageDraft {
+  return {
+    image_path: null,
+    image_thumb_path: null,
+    image_alt: alt,
+    image_width: null,
+    image_height: null,
+    focal_point_x: 50,
+    focal_point_y: 50,
+    original_filename: null,
+    source_width: null,
+    source_height: null,
+    source_bytes: null,
+    web_bytes: null,
+    thumbnail_bytes: null,
+  };
 }
 
 export interface FilmFrameDraft {
@@ -816,9 +841,8 @@ function mergeServices(fallback: ServiceItem[], rows: ServiceRow[]): ServiceItem
   if (rows.length === 0) return fallback;
   return rows.map((row, index) => {
     const slot = fallback[index];
-    const src = row.storage_path
-      ? imageUrl(row.storage_path)
-      : imageUrl(null, row.external_url) || slot?.previewSrc || "";
+    const src =
+      thumbUrl(row.storage_path, row.thumbnail_path, row.external_url) || slot?.previewSrc || "";
     return {
       id: row.id,
       num: row.display_number || slot?.num || String(index + 1).padStart(2, "0"),
@@ -860,11 +884,18 @@ function imageDraftFrom(
 ): ContentImageDraft {
   return {
     image_path: nonEmpty(text(data?.image_path)) || null,
+    image_thumb_path: nonEmpty(text(data?.image_thumb_path)) || null,
     image_alt: nonEmpty(text(data?.image_alt)) || fallbackAlt,
     image_width: num(data?.image_width),
     image_height: num(data?.image_height),
     focal_point_x: num(data?.focal_point_x) ?? 50,
     focal_point_y: num(data?.focal_point_y) ?? 50,
+    original_filename: nonEmpty(text(data?.original_filename)) || null,
+    source_width: num(data?.source_width),
+    source_height: num(data?.source_height),
+    source_bytes: num(data?.source_bytes),
+    web_bytes: num(data?.web_bytes),
+    thumbnail_bytes: num(data?.thumbnail_bytes),
   };
 }
 

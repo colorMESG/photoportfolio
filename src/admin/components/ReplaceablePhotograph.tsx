@@ -1,20 +1,47 @@
 import { useEffect, useRef, useState } from "react";
-import type { ContentImageDraft } from "../../lib/content/siteCopy";
+import {
+  blankContentImage,
+  type ContentImageDraft,
+} from "../../lib/content/siteCopy";
 import {
   ALLOWED_IMAGE_TYPES,
-  buildSiteImagePath,
-  imageUrl,
-  readImageSize,
+  managedAssetPaths,
+  needsOptimization,
+  thumbUrl,
   validateImageFile,
 } from "../../lib/images";
-import { uploadOriginal } from "../../lib/storage";
+import type { OptimizeStage, OptimizedPair } from "../../lib/optimizeImage";
+import {
+  reoptimizeStoredPhotograph,
+  siteUploadPaths,
+  uploadOptimizedPhotograph,
+  type PhotographUpload,
+} from "../../lib/uploadPhotograph";
 import { Button, ErrorNote, Field, TextInput } from "./Form";
+import { OptimizeReport, StoredOptimizeNote } from "./OptimizeReport";
 import { SourceBadge, Thumb } from "./Thumb";
+
+function applyUpload(image: ContentImageDraft, upload: PhotographUpload): ContentImageDraft {
+  const { optimized } = upload;
+  return {
+    ...image,
+    image_path: upload.webPath,
+    image_thumb_path: upload.thumbPath,
+    image_width: optimized.webWidth,
+    image_height: optimized.webHeight,
+    original_filename: optimized.originalFilename,
+    source_width: optimized.sourceWidth,
+    source_height: optimized.sourceHeight,
+    source_bytes: optimized.sourceBytes,
+    web_bytes: optimized.webBytes,
+    thumbnail_bytes: optimized.thumbBytes,
+  };
+}
 
 /**
  * One site photograph the public page currently renders, plus a way to replace
  * it. The static Unsplash plate is never uploaded — only a file the editor
- * chooses goes into Storage. Clearing the replacement returns to that plate.
+ * chooses is optimized in the browser and stored as WebP derivatives.
  */
 export default function ReplaceablePhotograph({
   title,
@@ -31,14 +58,16 @@ export default function ReplaceablePhotograph({
   staticSrc: string;
   staticAlt: string;
   image: ContentImageDraft;
-  onChange: (next: ContentImageDraft, orphanPath?: string) => void;
+  onChange: (next: ContentImageDraft, orphanPaths?: string[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<string | null>(null);
   const [fileOver, setFileOver] = useState(false);
+  const [stage, setStage] = useState<OptimizeStage | null>(null);
   const [percent, setPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [optimized, setOptimized] = useState<OptimizedPair | null>(null);
 
   useEffect(() => {
     return () => {
@@ -53,8 +82,18 @@ export default function ReplaceablePhotograph({
   }
 
   const managed = Boolean(image.image_path);
-  const shownSrc = localPreview || (image.image_path ? imageUrl(image.image_path) : staticSrc);
-  const uploading = percent !== null && percent < 100 && !error;
+  const shownSrc =
+    localPreview ||
+    (image.image_path
+      ? thumbUrl(image.image_path, image.image_thumb_path)
+      : staticSrc);
+  const busy = Boolean(stage && stage !== "done" && !error);
+  const legacy = needsOptimization(image.image_path, image.image_thumb_path);
+
+  function onStage(next: OptimizeStage, extra?: { percent?: number }) {
+    setStage(next);
+    setPercent(extra?.percent ?? null);
+  }
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -65,51 +104,75 @@ export default function ReplaceablePhotograph({
     }
 
     setError(null);
-    setPercent(0);
-    setPreview(URL.createObjectURL(file));
+    setOptimized(null);
+    setPreview(null);
+    onStage("preparing");
 
-    const previous = image.image_path;
-    const path = buildSiteImagePath(slot, file);
-    const { error: uploadError } = await uploadOriginal(path, file, (progress) => {
-      setPercent(progress.percent);
+    const previous = managedAssetPaths(image.image_path, image.image_thumb_path);
+    const paths = siteUploadPaths(slot);
+    const { data, error: uploadError } = await uploadOptimizedPhotograph({
+      file,
+      paths,
+      onStage,
     });
 
-    if (uploadError) {
-      setError(uploadError);
+    if (uploadError || !data) {
+      setError(uploadError ?? "Optimization failed.");
+      setStage(null);
       setPercent(null);
       setPreview(null);
       return;
     }
 
-    const size = await readImageSize(file);
-    onChange(
-      {
-        ...image,
-        image_path: path,
-        image_width: size?.width ?? null,
-        image_height: size?.height ?? null,
-        focal_point_x: image.focal_point_x ?? 50,
-        focal_point_y: image.focal_point_y ?? 50,
-      },
-      previous && previous !== path ? previous : undefined
-    );
+    setPreview(URL.createObjectURL(data.optimized.thumb));
+    setOptimized(data.optimized);
+    onStage("saving");
+    onChange(applyUpload(image, data), previous.length ? previous : undefined);
+    setStage("done");
+    setPercent(100);
+  }
+
+  async function optimizeExisting() {
+    if (!image.image_path) return;
+    setError(null);
+    setOptimized(null);
+    onStage("preparing");
+    const paths = siteUploadPaths(slot);
+    const { data, error: optimizeError, previousPaths } = await reoptimizeStoredPhotograph({
+      storagePath: image.image_path,
+      thumbnailPath: image.image_thumb_path,
+      originalFilename: image.original_filename,
+      paths,
+      onStage,
+    });
+    if (optimizeError || !data) {
+      setError(optimizeError ?? "Optimization failed.");
+      setStage(null);
+      setPercent(null);
+      return;
+    }
+    setPreview(URL.createObjectURL(data.optimized.thumb));
+    setOptimized(data.optimized);
+    onStage("saving");
+    onChange(applyUpload(image, data), previousPaths);
+    setStage("done");
     setPercent(100);
   }
 
   function removeReplacement() {
     if (!image.image_path) return;
     setError(null);
-    const previous = image.image_path;
+    const previous = managedAssetPaths(image.image_path, image.image_thumb_path);
     setPreview(null);
     setPercent(null);
+    setStage(null);
+    setOptimized(null);
     onChange(
       {
-        ...image,
-        image_path: null,
-        image_width: null,
-        image_height: null,
-        focal_point_x: 50,
-        focal_point_y: 50,
+        ...blankContentImage(image.image_alt),
+        image_alt: image.image_alt,
+        focal_point_x: image.focal_point_x ?? 50,
+        focal_point_y: image.focal_point_y ?? 50,
       },
       previous
     );
@@ -137,13 +200,20 @@ export default function ReplaceablePhotograph({
           void handleFile(event.dataTransfer.files[0]);
         }}
       >
-        <Thumb key={shownSrc} src={shownSrc} alt={image.image_alt || staticAlt} width={440} height={586} className="size-full" eager />
-        {uploading && (
+        <Thumb
+          key={shownSrc}
+          src={shownSrc}
+          alt={image.image_alt || staticAlt}
+          width={440}
+          height={586}
+          className="size-full"
+          eager
+        />
+        {busy && (
           <div className="absolute inset-x-0 bottom-0 bg-neutral-950/80 px-2 py-1.5">
             <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
-              <div className="h-full bg-neutral-200" style={{ width: `${percent}%` }} />
+              <div className="h-full bg-neutral-200" style={{ width: `${percent ?? 8}%` }} />
             </div>
-            <p className="mt-1 font-mono text-[10px] text-neutral-400">{percent}%</p>
           </div>
         )}
       </div>
@@ -158,12 +228,40 @@ export default function ReplaceablePhotograph({
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
+      {(stage || optimized) && (
+        <OptimizeReport
+          sourceName={image.original_filename || image.image_alt || title}
+          stage={stage}
+          percent={percent}
+          optimized={optimized}
+          error={error}
+        />
+      )}
+
+      {!optimized && managed && (
+        <StoredOptimizeNote
+          filename={image.original_filename}
+          sourceWidth={image.source_width}
+          sourceHeight={image.source_height}
+          sourceBytes={image.source_bytes}
+          webWidth={image.image_width}
+          webHeight={image.image_height}
+          webBytes={image.web_bytes}
+          thumbBytes={image.thumbnail_bytes}
+        />
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => inputRef.current?.click()} disabled={uploading}>
+        <Button onClick={() => inputRef.current?.click()} disabled={busy}>
           Replace photograph
         </Button>
+        {managed && legacy && (
+          <Button onClick={() => void optimizeExisting()} disabled={busy}>
+            Optimize existing image
+          </Button>
+        )}
         {managed && (
-          <Button onClick={removeReplacement} disabled={uploading}>
+          <Button onClick={removeReplacement} disabled={busy}>
             Remove replacement
           </Button>
         )}
@@ -177,7 +275,8 @@ export default function ReplaceablePhotograph({
         )}
         <p className="text-xs text-neutral-500">
           Drop a file on the preview, or choose one. JPEG, PNG, WebP or AVIF, up to 50 MB.
-          Originals are not compressed. The current static photograph is never uploaded.
+          The original is not uploaded — the browser writes a 2400px WebP and a 480px
+          thumbnail. The current static photograph is never copied into Storage.
         </p>
       </div>
 

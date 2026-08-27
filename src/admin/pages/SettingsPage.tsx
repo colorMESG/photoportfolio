@@ -3,6 +3,7 @@ import ReplaceablePhotograph from "../components/ReplaceablePhotograph";
 import { Button, ErrorNote, Field, TextArea, TextInput, Toggle } from "../components/Form";
 import { PageHeader, ViewOnSite } from "../components/PageHeader";
 import {
+  blankContentImage,
   settingsDraftFrom,
   staticSiteCopy,
   type ContentImageDraft,
@@ -13,18 +14,16 @@ import {
   publishSiteSettings,
   saveSiteSettingsDraft,
 } from "../../lib/db/siteContent";
-import { deleteStoredObject } from "../../lib/storage";
+import { companionThumbPath } from "../../lib/optimizeImage";
+import { deleteStoredObjects } from "../../lib/storage";
 
 const emptyDraft = (): SettingsDraft => settingsDraftFrom(staticSiteCopy(), null);
 
 function imageFromPath(path: string): ContentImageDraft {
   return {
+    ...blankContentImage(),
     image_path: path || null,
-    image_alt: "",
-    image_width: null,
-    image_height: null,
-    focal_point_x: 50,
-    focal_point_y: 50,
+    image_thumb_path: companionThumbPath(path || null),
   };
 }
 
@@ -53,10 +52,17 @@ export default function SettingsPage() {
     void reload();
   }, []);
 
-  function patch<K extends keyof SettingsDraft>(key: K, value: SettingsDraft[K], orphanPath?: string) {
+  function patch<K extends keyof SettingsDraft>(
+    key: K,
+    value: SettingsDraft[K],
+    orphanPaths?: string | string[]
+  ) {
     setStatus(null);
     setDraft((current) => ({ ...current, [key]: value }));
-    if (orphanPath) setOrphans((current) => [...current, orphanPath]);
+    if (orphanPaths) {
+      const list = Array.isArray(orphanPaths) ? orphanPaths : [orphanPaths];
+      if (list.length) setOrphans((current) => [...current, ...list]);
+    }
   }
 
   async function persist(mode: "draft" | "publish") {
@@ -75,7 +81,7 @@ export default function SettingsPage() {
         : "Draft saved. The public site is unchanged."
     );
     if (orphans.length) {
-      await Promise.all(orphans.map((path) => deleteStoredObject(path)));
+      await deleteStoredObjects(orphans);
       setOrphans([]);
     }
     await reload();
@@ -174,7 +180,7 @@ export default function SettingsPage() {
             staticSrc=""
             staticAlt="Open Graph"
             image={imageFromPath(draft.og_image_path)}
-            onChange={(image, orphan) => patch("og_image_path", image.image_path ?? "", orphan)}
+            onChange={(image, orphans) => patch("og_image_path", image.image_path ?? "", orphans)}
           />
           <ReplaceablePhotograph
             title="Favicon"
@@ -182,7 +188,9 @@ export default function SettingsPage() {
             staticSrc=""
             staticAlt="Favicon"
             image={imageFromPath(draft.favicon_path)}
-            onChange={(image, orphan) => patch("favicon_path", image.image_path ?? "", orphan)}
+            onChange={(image, orphans) =>
+              patch("favicon_path", image.image_thumb_path || image.image_path || "", orphans)
+            }
           />
         </Section>
       </div>

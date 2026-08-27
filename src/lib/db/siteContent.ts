@@ -303,11 +303,18 @@ function contentWrites(
 function imageFields(image: ContentImageDraft): Record<string, unknown> {
   return {
     image_path: image.image_path,
+    image_thumb_path: image.image_thumb_path,
     image_alt: image.image_alt.trim() || null,
     image_width: image.image_width,
     image_height: image.image_height,
     focal_point_x: image.focal_point_x,
     focal_point_y: image.focal_point_y,
+    original_filename: image.original_filename,
+    source_width: image.source_width,
+    source_height: image.source_height,
+    source_bytes: image.source_bytes,
+    web_bytes: image.web_bytes,
+    thumbnail_bytes: image.thumbnail_bytes,
   };
 }
 

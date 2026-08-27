@@ -31,7 +31,19 @@ export async function insertProjectImage(
     | "featured"
     | "focal_point_x"
     | "focal_point_y"
-  >
+  > &
+    Partial<
+      Pick<
+        ProjectImageRow,
+        | "thumbnail_path"
+        | "original_filename"
+        | "source_width"
+        | "source_height"
+        | "source_bytes"
+        | "web_bytes"
+        | "thumbnail_bytes"
+      >
+    >
 ): Promise<Result<ProjectImageRow>> {
   const { data, error } = await requireSupabase()
     .from("project_images")
@@ -46,7 +58,10 @@ export async function updateProjectImage(
   patch: Partial<
     Pick<
       ProjectImageRow,
-      "alt" | "caption" | "featured" | "focal_point_x" | "focal_point_y" | "sort_order"
+      | "alt" | "caption" | "featured" | "focal_point_x" | "focal_point_y" | "sort_order"
+      | "storage_path" | "thumbnail_path" | "original_filename"
+      | "source_width" | "source_height" | "source_bytes"
+      | "width" | "height" | "web_bytes" | "thumbnail_bytes"
     >
   >
 ): Promise<Result<ProjectImageRow>> {

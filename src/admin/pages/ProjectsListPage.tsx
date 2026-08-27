@@ -9,7 +9,8 @@ import { listImagesForProjects } from "../../lib/db/images";
 import { deleteProject, listProjects, setPublished } from "../../lib/db/projects";
 import { reorderProjects } from "../../lib/db/reorder";
 import type { ProjectImageRow, ProjectKind, ProjectRow } from "../../lib/db/types";
-import { imageUrl } from "../../lib/images";
+import { managedAssetPaths, thumbUrl } from "../../lib/images";
+import { deleteStoredObjects } from "../../lib/storage";
 import { Badge, Button, ErrorNote } from "../components/Form";
 import { PageHeader } from "../components/PageHeader";
 import { DragHandle, SortableList, type HandleProps } from "../components/SortableList";
@@ -86,7 +87,11 @@ export default function ProjectsListPage({ kind }: { kind: ProjectKind }) {
     );
     if (!ok) return;
     setBusyId(row.id);
+    const paths = (imagesByProject.get(row.id) ?? []).flatMap((image) =>
+      managedAssetPaths(image.storage_path, image.thumbnail_path)
+    );
     const { error: err } = await deleteProject(row.id);
+    if (!err) await deleteStoredObjects(paths);
     setBusyId(null);
     if (err) return setError(err);
     await load();
@@ -194,7 +199,7 @@ function ProjectRow({
   const managedCover =
     managed.find((image) => image.id === row.cover_image_id) ?? managed[0];
   const coverSrc = managedCover
-    ? imageUrl(managedCover.storage_path, managedCover.external_url)
+    ? thumbUrl(managedCover.storage_path, managedCover.thumbnail_path, managedCover.external_url)
     : staticCover(row.kind, row.slug)?.src ?? "";
 
   const hasManaged = managed.length > 0;
