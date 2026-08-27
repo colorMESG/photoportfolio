@@ -26,6 +26,12 @@ export const siteSettings: SiteSettings = {
     { label: "Liên hệ", href: "#contact" },
   ],
   contact: contactInfo,
+  seoTitle: "NAHN — Nhiếp ảnh",
+  seoDescription:
+    "Nhiếp ảnh gia tại Thành phố Hồ Chí Minh. Chân dung, editorial, sự kiện doanh nghiệp và flycam.",
+  ogImageSrc: "",
+  faviconSrc: "",
+  indexPublic: false,
 };
 
 /** Camera data revealed when hovering a photo; referenced by `exifIdx`. */

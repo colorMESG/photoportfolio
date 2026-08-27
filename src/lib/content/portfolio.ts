@@ -59,15 +59,19 @@ export function overlayPhotography(
   fallback: PhotographyProject,
   managed: ManagedProject | null
 ): PhotographyProject {
-  if (!managed || managed.images.length === 0) return fallback;
+  if (!managed) return fallback;
   const { project, images } = managed;
-  return {
+  const next: PhotographyProject = {
     ...fallback,
     title: project.title || fallback.title,
     subtitle: project.subtitle || fallback.subtitle,
     year: project.year || fallback.year,
     location: project.location || fallback.location,
     displayNumber: project.display_number || fallback.displayNumber,
+  };
+  if (images.length === 0) return next;
+  return {
+    ...next,
     coverImage: resolveCover(managed, fallback.coverImage ?? fallback.images[0]),
     images: images.map((image, index) => ({
       ...image,
@@ -80,7 +84,8 @@ export function overlayCorporateList(
   fallback: CorporateProject[],
   managed: ManagedProject | null
 ): CorporateProject[] {
-  if (!managed || managed.images.length === 0) return fallback;
+  if (!managed) return fallback;
+  if (managed.images.length === 0) return fallback;
   // Sequential `sort_order` into existing cells. Cover is not remapped onto
   // index 0 — that would duplicate a later photograph in a multi-image grid.
   return managed.images.map((image, index) => {
@@ -102,7 +107,14 @@ export function overlayCorporateItem(
   fallback: CorporateProject,
   managed: ManagedProject | null
 ): CorporateProject {
-  if (!managed || managed.images.length === 0) return fallback;
+  if (!managed) return fallback;
+  if (managed.images.length === 0) {
+    return {
+      ...fallback,
+      client: managed.project.client || managed.project.title || fallback.client,
+      year: managed.project.year || fallback.year,
+    };
+  }
   const image = resolveCover(managed) ?? managed.images[0];
   if (!image) return fallback;
   return {
@@ -121,11 +133,19 @@ export function overlayAerial(
   fallback: AerialImage,
   managed: ManagedProject | null
 ): AerialImage {
-  if (!managed || managed.images.length === 0) return fallback;
-  const image = resolveCover(managed) ?? managed.images[0];
+  if (!managed) return fallback;
   const { project } = managed;
-  return {
+  const meta: AerialImage = {
     ...fallback,
+    title: project.title || fallback.title,
+    region: project.location || fallback.region,
+    altitude: project.altitude || fallback.altitude,
+    coordinates: project.coordinates || fallback.coordinates,
+  };
+  if (managed.images.length === 0) return meta;
+  const image = resolveCover(managed) ?? managed.images[0];
+  return {
+    ...meta,
     ...image,
     id: image.id,
     src: image.src,
@@ -166,7 +186,6 @@ export async function fetchPublishedPortfolio(): Promise<PortfolioOverlays | nul
       const photos = (byProject.get(project.id) ?? []).slice().sort((a, b) => {
         return (a.order ?? 0) - (b.order ?? 0);
       });
-      if (photos.length === 0) continue;
       overlays[projectKey(project.kind, project.slug)] = {
         project,
         images: photos,

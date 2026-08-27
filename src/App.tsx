@@ -4,24 +4,18 @@ import {
 } from "react";
 
 import {
-  corporateHeading, eventAward, eventGala, eventNetworking, eventPanel, eventStage,
-  eventsLabel, eventsWord, headshots, headshotsLabel, retouchContent,
-  teamBusiness, teamDiverse, teamOutdoor, teamOverhead, teamsLabel,
+  eventAward, eventGala, eventNetworking, eventPanel, eventStage,
+  headshots, retouchContent,
+  teamBusiness, teamDiverse, teamOutdoor, teamOverhead,
 } from "./content/corporate";
 import {
-  aerialFrames, flyBaiTuLong, flyHaLong, flyMuCangChai, flySaPa,
-  flycamCapabilities, flycamHeading, flycamOverlayWord,
+  flyBaiTuLong, flyHaLong, flyMuCangChai, flySaPa,
 } from "./content/flycam";
 import {
-  galleryHeading, haLong, hoiAn, hoiAnOldTown, phuQuoc, saPa, saigonNight,
-} from "./content/gallery";
-import {
-  collage, contactSheet, filmStripContent, fragments, locationSeries, locationSeriesWord,
-  portraitStudy, rosieNumerals, rosieProject, selectedWorksHeading, veilStudy,
+  contactSheet, fragments, locationSeries,
+  portraitStudy, rosieProject, veilStudy,
 } from "./content/projects";
-import {
-  exifPresets, servicesContent, uiLabels,
-} from "./content/site";
+import { exifPresets } from "./content/site";
 import type { ProjectImage } from "./content/types";
 import {
   PortfolioProvider,
@@ -129,6 +123,7 @@ function ScrambleText({ text, className, style }: { text:string; className?:stri
     };
     cancelAnimationFrame(r.current); r.current = requestAnimationFrame(tick);
   }, [text]);
+  useEffect(() => { setD(text); }, [text]);
   useEffect(() => () => cancelAnimationFrame(r.current), []);
   return <div className={className} style={style} onMouseEnter={scramble}>{d}</div>;
 }
@@ -237,6 +232,7 @@ function CorpPhoto({ src, alt, className="", style, onHover, onLeave, category, 
 
 // ─── BEFORE / AFTER SLIDER ───────────────────────────────────────────────────
 function BeforeAfter({ src, alt }: { src:string; alt:string }) {
+  const { retouch: labels } = useSiteCopy();
   const [pos, setPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -264,10 +260,10 @@ function BeforeAfter({ src, alt }: { src:string; alt:string }) {
         </div>
       </div>
       {/* Labels */}
-      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/60"><span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/70">{retouchContent.beforeLabel}</span></div>
-      <div className="absolute top-3 right-3 z-10 px-2 py-0.5 bg-black/60"><span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/70">{retouchContent.afterLabel}</span></div>
+      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/60"><span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/70">{labels.beforeLabel}</span></div>
+      <div className="absolute top-3 right-3 z-10 px-2 py-0.5 bg-black/60"><span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/70">{labels.afterLabel}</span></div>
       <div className="absolute bottom-4 left-0 right-0 text-center z-10">
-        <span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/40">{retouchContent.dragHint}</span>
+        <span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/40">{labels.dragHint}</span>
       </div>
     </div>
   );
@@ -348,6 +344,7 @@ function ServiceItem({ num, title, subtitle, previewSrc }: { num:string; title:s
 
 // ─── LIGHTBOX ─────────────────────────────────────────────────────────────────
 function Lightbox({ src, ei, onClose }: { src:string; ei:number; onClose:()=>void }) {
+  const { ui } = useSiteCopy();
   const exif = exifPresets[ei % exifPresets.length];
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -366,7 +363,7 @@ function Lightbox({ src, ei, onClose }: { src:string; ei:number; onClose:()=>voi
             <span className="w-px h-3 bg-white/15" /><span className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">{exif.lens}</span>
             <span className="w-px h-3 bg-white/15" /><span className="font-mono text-[9px] tracking-[0.2em] text-white/35 uppercase">{exif.exp}</span>
           </div>
-          <button onClick={onClose} className="absolute -top-10 right-0 font-mono text-[9px] tracking-[0.2em] uppercase text-white/30 hover:text-white/70 transition-colors">{uiLabels.lightboxClose}</button>
+          <button onClick={onClose} className="absolute -top-10 right-0 font-mono text-[9px] tracking-[0.2em] uppercase text-white/30 hover:text-white/70 transition-colors">{ui.lightboxClose}</button>
         </div>
       </div>
     </>
@@ -375,6 +372,7 @@ function Lightbox({ src, ei, onClose }: { src:string; ei:number; onClose:()=>voi
 
 // ─── FILM STRIP ───────────────────────────────────────────────────────────────
 function FilmStrip({ onImgHover, onImgLeave, onDragChange }: HP & { onDragChange:(v:boolean)=>void }) {
+  const { filmStrip } = useSiteCopy();
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -391,16 +389,16 @@ function FilmStrip({ onImgHover, onImgLeave, onDragChange }: HP & { onDragChange
   return (
     <section className="bg-[#0a0a0a] py-16 overflow-hidden select-none">
       <div className="px-8 md:px-14 mb-8 flex items-center gap-8">
-        <Reveal><ScrambleText text={filmStripContent.heading} className="font-display font-black leading-none text-white/10" style={{ fontSize:"clamp(40px,6vw,90px)", letterSpacing:"-0.02em" }} /></Reveal>
+        <Reveal><ScrambleText text={filmStrip.heading} className="font-display font-black leading-none text-white/10" style={{ fontSize:"clamp(40px,6vw,90px)", letterSpacing:"-0.02em" }} /></Reveal>
         <Reveal delay={60} className="hidden md:flex flex-col gap-1">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-white/25">{filmStripContent.labels[0]}</span>
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-white/15">{filmStripContent.labels[1]}</span>
+          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-white/25">{filmStrip.labels[0]}</span>
+          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-white/15">{filmStrip.labels[1]}</span>
         </Reveal>
       </div>
       <div className="relative">
         <div className="overflow-hidden" style={{ height:22, background:"#111" }}><div className="flex items-center px-3 gap-[9px]" style={{ height:"100%" }}>{Array.from({length:80}).map((_,i) => <div key={i} className="flex-shrink-0 rounded-sm bg-[#0a0a0a]" style={{ width:12, height:14 }} />)}</div></div>
         <div ref={containerRef} className="flex gap-[2px] overflow-x-auto" style={{ scrollbarWidth:"none", cursor:"none", background:"#080808" }} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}>
-          {filmStripContent.frames.map((f, idx) => (
+          {filmStrip.frames.map((f, idx) => (
             <div key={f.id} className="flex-shrink-0 relative group" style={{ width:f.portrait?260:400, height:390, background:"#111" }} onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
               <Photo src={f.src} alt={`Film frame ${f.n}`} className="w-full h-full" exifIdx={idx} onHover={onImgHover} onLeave={onImgLeave} />
               <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"><span className="font-mono text-[8px] tracking-[0.2em] uppercase text-white/60">{f.loc}</span></div>
@@ -448,7 +446,7 @@ function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
   const [mx, setMx] = useState(0); const [my, setMy] = useState(0);
   useEffect(() => { const h = (e: MouseEvent) => { setMx(((e.clientX/window.innerWidth)-.5)*-18); setMy(((e.clientY/window.innerHeight)-.5)*-12); }; window.addEventListener("mousemove", h); return () => window.removeEventListener("mousemove", h); }, []);
   return (
-    <section className="relative h-screen overflow-hidden bg-[#0a0a0a]">
+    <section className="relative h-screen overflow-hidden bg-[#0a0a0a]" id="hero">
       <div className="absolute inset-[-4%]" style={{ transform:`translateX(${mx}px) translateY(calc(${scrollY*.28}px + ${my}px))`, transition:"transform 0.08s linear", willChange:"transform" }} onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
         <img src={hero.image.src} alt={hero.image.alt} className="w-full h-full object-cover" style={heroPos ? { objectPosition: heroPos } : undefined} />
       </div>
@@ -474,6 +472,7 @@ function Hero({ scrollY, onImgHover, onImgLeave }: HP & { scrollY:number }) {
 
 // ─── SELECTED WORK ───────────────────────────────────────────────────────────
 function SelectedWork({ onImgHover, onImgLeave }: HP) {
+  const { headings, ghost } = useSiteCopy();
   const study = usePhotography(portraitStudy);
   const location = usePhotography(locationSeries);
   const sheet = usePhotography(contactSheet);
@@ -486,8 +485,8 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
   return (
     <section id="work" className="bg-[#f5f0e8] pt-28 pb-0">
       <div className="px-8 md:px-14 overflow-hidden">
-        <Reveal><ScrambleText text={selectedWorksHeading.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9 }} /></Reveal>
-        <Reveal delay={80}><ScrambleText text={selectedWorksHeading.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9, marginLeft:"8vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
+        <Reveal><ScrambleText text={headings.selectedWorks.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9 }} /></Reveal>
+        <Reveal delay={80}><ScrambleText text={headings.selectedWorks.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9, marginLeft:"8vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
         <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{study.displayNumber}</Lbl><div><Lbl>{study.title}</Lbl><Lbl>{study.year}</Lbl></div></Reveal>
@@ -502,7 +501,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
           {p2a && <Reveal className="w-full md:w-[68%]"><Photo src={p2a.src} alt={p2a.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2a.exifIdx} objectPosition={imgPos(p2a)} /></Reveal>}
           {p2b && <Reveal delay={140} className="w-full md:w-[30%]"><Photo src={p2b.src} alt={p2b.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={p2b.exifIdx} objectPosition={imgPos(p2b)} /></Reveal>}
         </div>
-        <Reveal delay={200} className="mt-8"><ScrambleText text={locationSeriesWord} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
+        <Reveal delay={200} className="mt-8"><ScrambleText text={ghost.locationSeries} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
       </div>
       <div className="mt-24 px-8 md:px-14">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl>{sheet.displayNumber}</Lbl><div><Lbl>{sheet.title}</Lbl><Lbl>{sheet.year}</Lbl></div></Reveal>
@@ -562,6 +561,7 @@ const HEADSHOT_SLOTS: { delay: number; className: string }[] = [
 
 // ─── CORPORATE & EVENTS ──────────────────────────────────────────────────────
 function CorporateSection({ onImgHover, onImgLeave }: HP) {
+  const { headings, ghost } = useSiteCopy();
   const portraits = useCorporateList("chan-dung-headshot", headshots);
   const panel = useCorporate("techsummit-vietnam-2026", eventPanel);
   const award = useCorporate("giai-thuong-xuat-sac", eventAward);
@@ -577,12 +577,12 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
       {/* Heading */}
       <div className="px-8 md:px-14 mb-16">
         <Reveal>
-          <div className="font-mono text-[9px] tracking-[0.3em] uppercase text-[#aaa] mb-4">{corporateHeading.eyebrow}</div>
-          <ScrambleText text={corporateHeading.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8.5vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
-          <ScrambleText text={corporateHeading.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8.5vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88, marginLeft:"10vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} />
+          <div className="font-mono text-[9px] tracking-[0.3em] uppercase text-[#aaa] mb-4">{headings.corporate.eyebrow}</div>
+          <ScrambleText text={headings.corporate.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8.5vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
+          <ScrambleText text={headings.corporate.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8.5vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88, marginLeft:"10vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} />
         </Reveal>
         <Reveal delay={120} className="mt-6 max-w-md md:ml-[14vw]">
-          <p className="font-sans text-[13px] leading-relaxed text-[#777] font-light">{corporateHeading.description}</p>
+          <p className="font-sans text-[13px] leading-relaxed text-[#777] font-light">{headings.corporate.description}</p>
         </Reveal>
       </div>
 
@@ -590,7 +590,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
       <div className="px-8 md:px-14 mb-20">
         <Reveal className="flex items-center gap-4 mb-8">
           <div className="w-8 h-px bg-[#0a0a0a]" />
-          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{headshotsLabel}</span>
+          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{headings.corporate.headshotsLabel}</span>
         </Reveal>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 items-start">
           {portraits.map((h, i) => {
@@ -608,7 +608,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
       <div className="bg-[#0a0a0a] py-20 px-8 md:px-14 mb-0">
         <Reveal className="flex items-center gap-4 mb-10">
           <div className="w-8 h-px bg-white/20" />
-          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-white/40">{eventsLabel}</span>
+          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-white/40">{headings.corporate.eventsLabel}</span>
         </Reveal>
         {/* Large event + small portrait */}
         <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-3 md:gap-4 mb-4 items-start">
@@ -625,7 +625,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
           </Reveal>
         </div>
         <Reveal delay={160} className="mt-10">
-          <ScrambleText text={eventsWord} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.06)" }} />
+          <ScrambleText text={ghost.events} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.06)" }} />
         </Reveal>
       </div>
 
@@ -633,7 +633,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
       <div className="px-8 md:px-14 pt-20">
         <Reveal className="flex items-center gap-4 mb-10">
           <div className="w-8 h-px bg-[#0a0a0a]" />
-          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{teamsLabel}</span>
+          <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{headings.corporate.teamsLabel}</span>
         </Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4 mb-4">
           <Reveal><CorpPhoto src={diverse.src} alt={diverse.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={diverse.category} client={diverse.client} year={diverse.year} objectPosition={imgPos(diverse)} /></Reveal>
@@ -650,6 +650,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── BEFORE/AFTER + STATS ────────────────────────────────────────────────────
 function RetouchSection({ onImgHover, onImgLeave }: HP) {
+  const { retouch } = useSiteCopy();
   const cover = useCover("corporate", "chan-dung-headshot", {
     id: retouchContent.image.src,
     src: retouchContent.image.src,
@@ -660,19 +661,19 @@ function RetouchSection({ onImgHover, onImgLeave }: HP) {
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-16 md:gap-20 items-center">
         {/* Before / After */}
         <Reveal>
-          <div className="font-mono text-[9px] tracking-[0.28em] uppercase text-white/30 mb-6">{retouchContent.label}</div>
-          <BeforeAfter src={cover?.src ?? retouchContent.image.src} alt={cover?.alt ?? retouchContent.image.alt} />
+          <div className="font-mono text-[9px] tracking-[0.28em] uppercase text-white/30 mb-6">{retouch.label}</div>
+          <BeforeAfter src={cover?.src ?? retouch.image.src} alt={cover?.alt ?? retouch.image.alt} />
         </Reveal>
         {/* Stats */}
         <div>
           <Reveal className="mb-12">
-            <ScrambleText text={retouchContent.statsWord} className="font-display font-black leading-none text-white/10" style={{ fontSize:"clamp(36px,5vw,80px)", letterSpacing:"-0.025em" }} />
+            <ScrambleText text={retouch.statsWord} className="font-display font-black leading-none text-white/10" style={{ fontSize:"clamp(36px,5vw,80px)", letterSpacing:"-0.025em" }} />
           </Reveal>
           <div className="grid grid-cols-2 gap-8 md:gap-12">
-            {retouchContent.stats.map(s => <StatCounter key={s.id} target={s.target} suffix={s.suffix} label={s.label} />)}
+            {retouch.stats.map(s => <StatCounter key={s.id} target={s.target} suffix={s.suffix} label={s.label} />)}
           </div>
           <Reveal delay={200} className="mt-12 border-t border-white/8 pt-8">
-            <p className="font-sans text-[12px] leading-relaxed text-white/35 font-light">{retouchContent.note}</p>
+            <p className="font-sans text-[12px] leading-relaxed text-white/35 font-light">{retouch.note}</p>
           </Reveal>
         </div>
       </div>
@@ -723,6 +724,7 @@ function AerialPhoto({ src, loc, region, alt: altitude, onHover, onLeave, classN
 }
 
 function FlycamSection({ onImgHover, onImgLeave }: HP) {
+  const { headings, ghost, flycamCapabilities, aerialFrames } = useSiteCopy();
   const haLong = useAerial("vinh-ha-long", flyHaLong);
   const saPa = useAerial("thung-lung-sa-pa", flySaPa);
   const muCangChai = useAerial("mu-cang-chai", flyMuCangChai);
@@ -734,15 +736,15 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
         <Reveal>
           <div className="flex items-end gap-5 mb-3">
             <div className="w-6 h-px bg-white/20" />
-            <span className="font-mono text-[9px] tracking-[0.3em] uppercase text-white/30">{flycamHeading.eyebrow}</span>
+            <span className="font-mono text-[9px] tracking-[0.3em] uppercase text-white/30">{headings.flycam.eyebrow}</span>
           </div>
-          <ScrambleText text={flycamHeading.lines[0]} className="font-display font-black leading-none text-white"
+          <ScrambleText text={headings.flycam.lines[0]} className="font-display font-black leading-none text-white"
             style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88 }} />
-          <ScrambleText text={flycamHeading.lines[1]} className="font-display font-black leading-none"
+          <ScrambleText text={headings.flycam.lines[1]} className="font-display font-black leading-none"
             style={{ fontSize:"clamp(60px,14vw,220px)", letterSpacing:"-0.03em", lineHeight:0.88, marginLeft:"12vw", color:"transparent", WebkitTextStroke:"1.5px rgba(255,255,255,0.18)" }} />
         </Reveal>
         <Reveal delay={140} className="mt-8 max-w-sm md:ml-[16vw]">
-          <p className="font-sans text-[12px] leading-relaxed text-white/35 font-light">{flycamHeading.description}</p>
+          <p className="font-sans text-[12px] leading-relaxed text-white/35 font-light">{headings.flycam.description}</p>
         </Reveal>
       </div>
 
@@ -792,7 +794,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
           <img src={muCangChai.src} alt={muCangChai.alt} className="w-full object-cover block"
             style={{ aspectRatio:"21/9", ...(imgPos(muCangChai) ? { objectPosition: imgPos(muCangChai) } : {}) }} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <ScrambleText text={flycamOverlayWord} className="font-display font-black leading-none text-white/10 text-center"
+            <ScrambleText text={ghost.flycam} className="font-display font-black leading-none text-white/10 text-center"
               style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.025em" }} />
           </div>
           <div className="absolute bottom-5 right-6 text-right">
@@ -832,6 +834,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── ROSIE ───────────────────────────────────────────────────────────────────
 function RosieStory({ onImgHover, onImgLeave }: HP) {
+  const { rosieNumerals } = useSiteCopy();
   const rosie = usePhotography(rosieProject);
   const [r1, r2, r3, r4a, r4b, r5a, r5b, r5c, r6] = rosie.images;
   return (
@@ -863,14 +866,15 @@ function RosieStory({ onImgHover, onImgLeave }: HP) {
 
 // ─── COLLAGE ─────────────────────────────────────────────────────────────────
 function CollageSection({ onImgHover, onImgLeave }: HP) {
+  const { collage } = useSiteCopy();
   const [c1, c2, c3] = collage.overlays;
   return (
     <section className="bg-[#0a0a0a] py-24 px-4 md:px-8">
       <div className="relative">
         <Reveal><Photo src={collage.background.src} alt={collage.background.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={collage.background.exifIdx} /></Reveal>
-        <div className="absolute top-0 right-0 w-[22%] md:w-[18%]" style={{ transform:"translate(6%,-12%)" }}><Reveal delay={200}><Photo src={c1.src} alt={c1.alt} className="w-full shadow-2xl" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c1.exifIdx} /></Reveal></div>
-        <div className="absolute bottom-0 left-0 w-[20%] md:w-[16%]" style={{ transform:"translate(-4%,14%)" }}><Reveal delay={280}><Photo src={c2.src} alt={c2.alt} className="w-full shadow-2xl" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c2.exifIdx} /></Reveal></div>
-        <div className="absolute top-[30%] left-[4%] w-[28%] md:w-[22%]" style={{ transform:"rotate(-1.5deg)" }}><Reveal delay={160}><Photo src={c3.src} alt={c3.alt} className="w-full shadow-xl" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c3.exifIdx} /></Reveal></div>
+        {c1 && <div className="absolute top-0 right-0 w-[22%] md:w-[18%]" style={{ transform:"translate(6%,-12%)" }}><Reveal delay={200}><Photo src={c1.src} alt={c1.alt} className="w-full shadow-2xl" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c1.exifIdx} /></Reveal></div>}
+        {c2 && <div className="absolute bottom-0 left-0 w-[20%] md:w-[16%]" style={{ transform:"translate(-4%,14%)" }}><Reveal delay={280}><Photo src={c2.src} alt={c2.alt} className="w-full shadow-2xl" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c2.exifIdx} /></Reveal></div>}
+        {c3 && <div className="absolute top-[30%] left-[4%] w-[28%] md:w-[22%]" style={{ transform:"rotate(-1.5deg)" }}><Reveal delay={160}><Photo src={c3.src} alt={c3.alt} className="w-full shadow-xl" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={c3.exifIdx} /></Reveal></div>}
         <div className="absolute bottom-6 right-6 text-right">{collage.meta.map(m => <Lbl key={m} light>{m}</Lbl>)}</div>
       </div>
       <Reveal className="mt-16 px-4 md:px-6"><ScrambleText text={collage.word} className="font-display font-black leading-none" style={{ fontSize:"clamp(50px,10vw,160px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
@@ -880,23 +884,41 @@ function CollageSection({ onImgHover, onImgLeave }: HP) {
 
 // ─── PERSONAL GALLERY ────────────────────────────────────────────────────────
 function PersonalGallery({ onImgHover, onImgLeave }: HP) {
+  const { headings, gallery } = useSiteCopy();
+  const [g0, g1, g2, g3, g4, g5, ...extras] = gallery;
   return (
-    <section className="bg-white pt-24 pb-28">
+    <section id="gallery" className="bg-white pt-24 pb-28">
       <div className="px-8 md:px-14 mb-14">
-        <Reveal><ScrambleText text={galleryHeading.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(46px,10vw,160px)", letterSpacing:"-0.025em", lineHeight:0.88 }} /></Reveal>
-        <Reveal delay={80}><ScrambleText text={galleryHeading.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(46px,10vw,160px)", letterSpacing:"-0.025em", lineHeight:0.88, marginLeft:"10vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
+        <Reveal><ScrambleText text={headings.gallery.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(46px,10vw,160px)", letterSpacing:"-0.025em", lineHeight:0.88 }} /></Reveal>
+        <Reveal delay={80}><ScrambleText text={headings.gallery.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(46px,10vw,160px)", letterSpacing:"-0.025em", lineHeight:0.88, marginLeft:"10vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
       </div>
       <div className="px-8 md:px-14">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1.3fr] gap-4 mb-4 items-end">
-          <Reveal><div><Photo src={hoiAn.src} alt={hoiAn.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={hoiAn.exifIdx} /><div className="mt-2"><Lbl>{hoiAn.location}</Lbl><Lbl>{hoiAn.year}</Lbl></div></div></Reveal>
-          <Reveal delay={130}><div className="md:mt-16"><Photo src={saPa.src} alt={saPa.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={saPa.exifIdx} /><div className="mt-2"><Lbl>{saPa.location}</Lbl><Lbl>{saPa.year}</Lbl></div></div></Reveal>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.8fr] gap-4 mt-6 items-start">
-          <Reveal><div><Photo src={haLong.src} alt={haLong.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={haLong.exifIdx} /><div className="mt-2"><Lbl>{haLong.location}</Lbl><Lbl>{haLong.year}</Lbl></div></div></Reveal>
-          <Reveal delay={100}><div className="md:mt-24"><Photo src={phuQuoc.src} alt={phuQuoc.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={phuQuoc.exifIdx} /><div className="mt-2"><Lbl>{phuQuoc.location}</Lbl><Lbl>{phuQuoc.year}</Lbl></div></div></Reveal>
-          <Reveal delay={180}><div className="md:mt-10"><Photo src={saigonNight.src} alt={saigonNight.alt} className="w-full" style={{ aspectRatio:"4/5" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={saigonNight.exifIdx} /><div className="mt-2"><Lbl>{saigonNight.location}</Lbl><Lbl>{saigonNight.year}</Lbl></div></div></Reveal>
-        </div>
-        <Reveal className="mt-6"><Photo src={hoiAnOldTown.src} alt={hoiAnOldTown.alt} className="w-full" style={{ aspectRatio:"21/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={hoiAnOldTown.exifIdx} /><div className="mt-2"><Lbl>{hoiAnOldTown.location}</Lbl><Lbl>{hoiAnOldTown.year}</Lbl></div></Reveal>
+        {(g0 || g1) && (
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.3fr] gap-4 mb-4 items-end">
+            {g0 && <Reveal><div><Photo src={g0.src} alt={g0.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g0.exifIdx} objectPosition={imgPos(g0)} /><div className="mt-2"><Lbl>{g0.location}</Lbl><Lbl>{g0.year}</Lbl></div></div></Reveal>}
+            {g1 && <Reveal delay={130}><div className="md:mt-16"><Photo src={g1.src} alt={g1.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g1.exifIdx} objectPosition={imgPos(g1)} /><div className="mt-2"><Lbl>{g1.location}</Lbl><Lbl>{g1.year}</Lbl></div></div></Reveal>}
+          </div>
+        )}
+        {(g2 || g3 || g4) && (
+          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.8fr] gap-4 mt-6 items-start">
+            {g2 && <Reveal><div><Photo src={g2.src} alt={g2.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g2.exifIdx} objectPosition={imgPos(g2)} /><div className="mt-2"><Lbl>{g2.location}</Lbl><Lbl>{g2.year}</Lbl></div></div></Reveal>}
+            {g3 && <Reveal delay={100}><div className="md:mt-24"><Photo src={g3.src} alt={g3.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g3.exifIdx} objectPosition={imgPos(g3)} /><div className="mt-2"><Lbl>{g3.location}</Lbl><Lbl>{g3.year}</Lbl></div></div></Reveal>}
+            {g4 && <Reveal delay={180}><div className="md:mt-10"><Photo src={g4.src} alt={g4.alt} className="w-full" style={{ aspectRatio:"4/5" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g4.exifIdx} objectPosition={imgPos(g4)} /><div className="mt-2"><Lbl>{g4.location}</Lbl><Lbl>{g4.year}</Lbl></div></div></Reveal>}
+          </div>
+        )}
+        {g5 && <Reveal className="mt-6"><Photo src={g5.src} alt={g5.alt} className="w-full" style={{ aspectRatio:"21/9" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={g5.exifIdx} objectPosition={imgPos(g5)} /><div className="mt-2"><Lbl>{g5.location}</Lbl><Lbl>{g5.year}</Lbl></div></Reveal>}
+        {extras.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+            {extras.map((image, index) => (
+              <Reveal key={image.id} delay={index * 80}>
+                <div>
+                  <Photo src={image.src} alt={image.alt} className="w-full" style={{ aspectRatio:"3/4" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={image.exifIdx} objectPosition={imgPos(image)} />
+                  <div className="mt-2"><Lbl>{image.location}</Lbl><Lbl>{image.year}</Lbl></div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -904,14 +926,15 @@ function PersonalGallery({ onImgHover, onImgLeave }: HP) {
 
 // ─── SERVICES LIST ────────────────────────────────────────────────────────────
 function ServicesSection() {
+  const { services } = useSiteCopy();
   return (
-    <section className="bg-[#f5f0e8] py-24 px-8 md:px-14">
+    <section id="services" className="bg-[#f5f0e8] py-24 px-8 md:px-14">
       <Reveal className="mb-12">
-        <div className="font-mono text-[9px] tracking-[0.3em] uppercase text-[#aaa] mb-4">{servicesContent.eyebrow}</div>
-        <ScrambleText text={servicesContent.heading} className="font-display font-black leading-none" style={{ fontSize:"clamp(48px,9vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
+        <div className="font-mono text-[9px] tracking-[0.3em] uppercase text-[#aaa] mb-4">{services.eyebrow}</div>
+        <ScrambleText text={services.heading} className="font-display font-black leading-none" style={{ fontSize:"clamp(48px,9vw,140px)", letterSpacing:"-0.025em", lineHeight:0.88 }} />
       </Reveal>
       <div className="border-t border-[#e0dbd4]">
-        {servicesContent.items.map(s => (
+        {services.items.map(s => (
           <Reveal key={s.id}><ServiceItem num={s.num} title={s.title} subtitle={s.subtitle} previewSrc={s.previewSrc} /></Reveal>
         ))}
       </div>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
+  applyDocumentHead,
   fetchManagedContent,
   resolveSiteCopy,
   siteCopyEqual,
@@ -17,6 +18,10 @@ const SiteCopyContext = createContext<SiteCopy>(staticSiteCopy());
  */
 export function SiteCopyProvider({ children }: { children: ReactNode }) {
   const [copy, setCopy] = useState<SiteCopy>(staticSiteCopy);
+
+  useEffect(() => {
+    applyDocumentHead(copy);
+  }, [copy]);
 
   useEffect(() => {
     let alive = true;

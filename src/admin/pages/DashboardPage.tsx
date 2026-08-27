@@ -70,11 +70,14 @@ export default function DashboardPage() {
       )}
 
       <p className="mt-8 max-w-prose text-sm leading-relaxed text-neutral-500">
-        Page copy and site settings resolve as{" "}
-        <code className="text-neutral-400">Supabase managed value → static fallback</code>.
-        Photographs still render from{" "}
-        <code className="text-neutral-400">src/content/</code> until they are
-        replaced with managed uploads.
+        Public content resolves as{" "}
+        <code className="text-neutral-400">published Supabase value → static fallback</code>.
+        Page copy uses{" "}
+        <code className="text-neutral-400">Save Draft</code> then{" "}
+        <code className="text-neutral-400">Publish</code>. Run{" "}
+        <code className="text-neutral-400">supabase/migrations/0005_content_publish.sql</code>{" "}
+        in the SQL Editor or drafts will share the live{" "}
+        <code className="text-neutral-400">data</code> column.
       </p>
     </>
   );

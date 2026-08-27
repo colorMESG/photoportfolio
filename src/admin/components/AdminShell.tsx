@@ -8,6 +8,7 @@ const NAV = [
   { to: "/flycam", label: "Flycam" },
   { to: "/corporate", label: "Corporate" },
   { to: "/gallery", label: "Personal Gallery" },
+  { to: "/services", label: "Services" },
   { to: "/about", label: "About / Content" },
   { to: "/settings", label: "Site Settings" },
 ];

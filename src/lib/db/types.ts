@@ -88,12 +88,19 @@ export interface SiteSettingsRow {
   seo_title: string | null;
   seo_description: string | null;
   og_image_path: string | null;
+  year?: string | null;
+  favicon_path?: string | null;
+  index_public?: boolean;
+  draft?: Record<string, unknown> | null;
+  published_at?: string | null;
   updated_at: string;
 }
 
 export interface ContentBlockRow {
   key: string;
   data: Record<string, unknown>;
+  published_data: Record<string, unknown> | null;
+  published_at: string | null;
   updated_at: string;
 }
 

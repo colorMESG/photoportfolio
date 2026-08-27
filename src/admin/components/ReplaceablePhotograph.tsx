@@ -6,7 +6,6 @@ import {
   imageUrl,
   readImageSize,
   validateImageFile,
-  type SiteImageSlot,
 } from "../../lib/images";
 import { uploadOriginal } from "../../lib/storage";
 import { Button, ErrorNote, Field, TextInput } from "./Form";
@@ -20,13 +19,15 @@ import { SourceBadge, Thumb } from "./Thumb";
 export default function ReplaceablePhotograph({
   title,
   slot,
+  viewHref,
   staticSrc,
   staticAlt,
   image,
   onChange,
 }: {
   title: string;
-  slot: SiteImageSlot;
+  slot: string;
+  viewHref?: string;
   staticSrc: string;
   staticAlt: string;
   image: ContentImageDraft;
@@ -165,6 +166,14 @@ export default function ReplaceablePhotograph({
           <Button onClick={removeReplacement} disabled={uploading}>
             Remove replacement
           </Button>
+        )}
+        {viewHref && (
+          <a
+            href={viewHref}
+            className="text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+          >
+            View on site ↗
+          </a>
         )}
         <p className="text-xs text-neutral-500">
           Drop a file on the preview, or choose one. JPEG, PNG, WebP or AVIF, up to 50 MB.

@@ -4,11 +4,12 @@ import RequireAdmin from "./auth/RequireAdmin";
 import AdminShell from "./components/AdminShell";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import ContentPage from "./pages/ContentPage";
 import GalleryPage from "./pages/GalleryPage";
 import ProjectEditorPage from "./pages/ProjectEditorPage";
 import ProjectsListPage from "./pages/ProjectsListPage";
-import ContentPage from "./pages/ContentPage";
 import { NotFoundPage } from "./pages/StubPages";
+import ServicesPage from "./pages/ServicesPage";
 import SettingsPage from "./pages/SettingsPage";
 
 /**
@@ -45,6 +46,7 @@ export default function AdminApp() {
               </Route>
 
               <Route path="gallery" element={<GalleryPage />} />
+              <Route path="services" element={<ServicesPage />} />
               <Route path="about" element={<ContentPage />} />
               <Route path="content" element={<Navigate to="/about" replace />} />
               <Route path="settings" element={<SettingsPage />} />

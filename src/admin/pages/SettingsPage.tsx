@@ -1,74 +1,111 @@
 import { useEffect, useState, type ReactNode } from "react";
-import CurrentImagePreview from "../components/CurrentImagePreview";
-import { Button, ErrorNote, Field, TextArea, TextInput } from "../components/Form";
-import { PageHeader } from "../components/PageHeader";
+import ReplaceablePhotograph from "../components/ReplaceablePhotograph";
+import { Button, ErrorNote, Field, TextArea, TextInput, Toggle } from "../components/Form";
+import { PageHeader, ViewOnSite } from "../components/PageHeader";
 import {
-  fetchManagedContent,
-  resolveSiteCopy,
   settingsDraftFrom,
   staticSiteCopy,
+  type ContentImageDraft,
   type SettingsDraft,
 } from "../../lib/content/siteCopy";
-import { saveSiteSettings } from "../../lib/db/siteContent";
-import { imageUrl } from "../../lib/images";
+import {
+  getSiteSettings,
+  publishSiteSettings,
+  saveSiteSettingsDraft,
+} from "../../lib/db/siteContent";
+import { deleteStoredObject } from "../../lib/storage";
 
 const emptyDraft = (): SettingsDraft => settingsDraftFrom(staticSiteCopy(), null);
 
+function imageFromPath(path: string): ContentImageDraft {
+  return {
+    image_path: path || null,
+    image_alt: "",
+    image_width: null,
+    image_height: null,
+    focal_point_x: 50,
+    focal_point_y: 50,
+  };
+}
+
 export default function SettingsPage() {
   const [draft, setDraft] = useState<SettingsDraft>(emptyDraft);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [orphans, setOrphans] = useState<string[]>([]);
 
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const managed = await fetchManagedContent();
-      if (!alive) return;
-      const copy = resolveSiteCopy(managed);
-      setDraft(settingsDraftFrom(copy, managed?.settings ?? null));
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  function patch<K extends keyof SettingsDraft>(key: K, value: SettingsDraft[K]) {
-    setSaved(false);
-    setDraft((current) => ({ ...current, [key]: value }));
-  }
-
-  async function onSave() {
-    setSaving(true);
-    setError(null);
-    const result = await saveSiteSettings(draft);
-    setSaving(false);
+  async function reload() {
+    const result = await getSiteSettings();
     if (result.error) {
       setError(result.error);
       return;
     }
-    setSaved(true);
-    if (result.data) {
-      setDraft(settingsDraftFrom(resolveSiteCopy({ settings: result.data, blocks: {} }), result.data));
-    }
+    const copy = staticSiteCopy();
+    setDraft(settingsDraftFrom(copy, result.data));
+    setPublishedAt(result.data?.published_at ?? null);
+    setHasDraft(Boolean(result.data?.draft));
   }
 
-  const ogSrc = draft.og_image_path.trim() ? imageUrl(draft.og_image_path.trim()) : "";
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  function patch<K extends keyof SettingsDraft>(key: K, value: SettingsDraft[K], orphanPath?: string) {
+    setStatus(null);
+    setDraft((current) => ({ ...current, [key]: value }));
+    if (orphanPath) setOrphans((current) => [...current, orphanPath]);
+  }
+
+  async function persist(mode: "draft" | "publish") {
+    setSaving(mode);
+    setError(null);
+    const result =
+      mode === "publish" ? await publishSiteSettings(draft) : await saveSiteSettingsDraft(draft);
+    setSaving(null);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setStatus(
+      mode === "publish"
+        ? "Published. Refresh the public site to see it."
+        : "Draft saved. The public site is unchanged."
+    );
+    if (orphans.length) {
+      await Promise.all(orphans.map((path) => deleteStoredObject(path)));
+      setOrphans([]);
+    }
+    await reload();
+  }
 
   return (
     <>
       <PageHeader
         title="Site Settings"
-        description="Brand, contact and SEO. Values load from the current website; empty database fields keep that static fallback."
+        description="Brand, contact, SEO and indexing. Values load from the current website; empty database fields keep the static fallback."
         actions={
-          <div className="flex items-center gap-3">
-            {saved && <span className="text-sm text-emerald-400">Saved.</span>}
-            <Button variant="primary" disabled={saving} onClick={() => void onSave()}>
-              {saving ? "Saving…" : "Save settings"}
+          <div className="flex flex-wrap items-center gap-3">
+            <ViewOnSite href="/" />
+            {status && <span className="text-sm text-emerald-400">{status}</span>}
+            <Button disabled={saving !== null} onClick={() => void persist("draft")}>
+              {saving === "draft" ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button variant="primary" disabled={saving !== null} onClick={() => void persist("publish")}>
+              {saving === "publish" ? "Publishing…" : "Publish"}
             </Button>
           </div>
         }
       />
+
+      {hasDraft && (
+        <p className="mb-6 rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+          A settings draft is stored. Publish to put it on the public site.
+          {publishedAt ? ` Last published ${new Date(publishedAt).toLocaleString()}.` : ""}
+        </p>
+      )}
 
       {error && (
         <div className="mb-6">
@@ -82,8 +119,11 @@ export default function SettingsPage() {
             <Field label="Brand name">
               <TextInput value={draft.brand_name} onChange={(v) => patch("brand_name", v)} required />
             </Field>
-            <Field label="Subtitle">
+            <Field label="Tagline">
               <TextInput value={draft.subtitle} onChange={(v) => patch("subtitle", v)} />
+            </Field>
+            <Field label="Year">
+              <TextInput value={draft.year} onChange={(v) => patch("year", v)} />
             </Field>
           </div>
         </Section>
@@ -122,17 +162,28 @@ export default function SettingsPage() {
               rows={4}
             />
           </Field>
-          <Field
-            label="Open Graph image path"
-            hint="A path inside the portfolio bucket. Leave empty to keep the current fallback."
-          >
-            <TextInput value={draft.og_image_path} onChange={(v) => patch("og_image_path", v)} />
-          </Field>
-          {ogSrc ? (
-            <CurrentImagePreview title="Open Graph image" src={ogSrc} alt="Open Graph" managed />
-          ) : (
-            <p className="text-xs text-neutral-500">No Open Graph image is stored yet.</p>
-          )}
+          <Toggle
+            checked={draft.index_public}
+            onChange={(v) => patch("index_public", v)}
+            label="Allow search indexing"
+            hint="When off, the public page sends noindex. Default matches the current Figma Make robots setting."
+          />
+          <ReplaceablePhotograph
+            title="Open Graph image"
+            slot="og"
+            staticSrc=""
+            staticAlt="Open Graph"
+            image={imageFromPath(draft.og_image_path)}
+            onChange={(image, orphan) => patch("og_image_path", image.image_path ?? "", orphan)}
+          />
+          <ReplaceablePhotograph
+            title="Favicon"
+            slot="favicon"
+            staticSrc=""
+            staticAlt="Favicon"
+            image={imageFromPath(draft.favicon_path)}
+            onChange={(image, orphan) => patch("favicon_path", image.image_path ?? "", orphan)}
+          />
         </Section>
       </div>
     </>

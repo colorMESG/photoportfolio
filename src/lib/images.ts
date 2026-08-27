@@ -68,12 +68,13 @@ export function buildStoragePath(kind: ProjectKind, slug: string, file: File): s
   return `${folder}/${safeSlug}/${id}.${ext}`;
 }
 
-export type SiteImageSlot = "hero" | "about" | "contact";
+export type SiteImageSlot = "hero" | "about" | "contact" | "og" | "favicon";
 
-/** Site-section originals. Separate from project folders so a later cleanup is obvious. */
-export function buildSiteImagePath(slot: SiteImageSlot, file: File): string {
+/** Originals under `site/<folder>/`. Used for page photographs and SEO assets. */
+export function buildSiteImagePath(slot: SiteImageSlot | string, file: File): string {
   const ext = extensionFor(file) ?? "jpg";
-  return `site/${slot}/${crypto.randomUUID()}.${ext}`;
+  const folder = slot.includes("/") ? slot : `site/${slot}`;
+  return `${folder}/${crypto.randomUUID()}.${ext}`;
 }
 
 /**

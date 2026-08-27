@@ -117,6 +117,11 @@ export interface SiteSettings {
   year: string;
   nav: NavLink[];
   contact: ContactInfo;
+  seoTitle: string;
+  seoDescription: string;
+  ogImageSrc: string;
+  faviconSrc: string;
+  indexPublic: boolean;
 }
 
 export interface ServiceItem {
@@ -125,6 +130,7 @@ export interface ServiceItem {
   title: string;
   subtitle: string;
   previewSrc: string;
+  previewAlt?: string;
 }
 
 export interface StatItem {

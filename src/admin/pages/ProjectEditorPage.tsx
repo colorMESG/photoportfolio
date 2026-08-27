@@ -28,7 +28,7 @@ import {
 } from "../components/Form";
 import { CurrentPhotographs } from "../components/CurrentPhotographs";
 import ImageManager, { type ImageManagerHandle } from "../components/ImageManager";
-import { PageHeader } from "../components/PageHeader";
+import { PageHeader, ViewOnSite } from "../components/PageHeader";
 
 /** Empty strings from a form become NULL rather than '' in the database. */
 const nullify = (v: string): string | null => (v.trim() === "" ? null : v.trim());
@@ -171,6 +171,11 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
         }
         actions={
           <div className="flex gap-2">
+            <ViewOnSite
+              href={
+                kind === "flycam" ? "/#flycam" : kind === "corporate" ? "/#business" : "/#work"
+              }
+            />
             <Button onClick={() => navigate("..")}>Back</Button>
             {!isNew && (
               <Button variant="danger" onClick={() => void remove()}>

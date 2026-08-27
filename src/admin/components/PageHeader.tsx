@@ -20,6 +20,17 @@ export function PageHeader({
   );
 }
 
+export function ViewOnSite({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      className="text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+    >
+      View on site ↗
+    </a>
+  );
+}
+
 /** Stand-in for sections that arrive in a later phase. */
 export function ComingNext({ what }: { what: string }) {
   return (
