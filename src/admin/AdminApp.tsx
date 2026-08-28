@@ -34,14 +34,17 @@ export default function AdminApp() {
                   screens; only the `kind` differs. */}
               <Route path="projects">
                 <Route index element={<ProjectsListPage kind="photography" />} />
+                <Route path="static/:slug" element={<ProjectEditorPage kind="photography" />} />
                 <Route path=":id" element={<ProjectEditorPage kind="photography" />} />
               </Route>
               <Route path="flycam">
                 <Route index element={<ProjectsListPage kind="flycam" />} />
+                <Route path="static/:slug" element={<ProjectEditorPage kind="flycam" />} />
                 <Route path=":id" element={<ProjectEditorPage kind="flycam" />} />
               </Route>
               <Route path="corporate">
                 <Route index element={<ProjectsListPage kind="corporate" />} />
+                <Route path="static/:slug" element={<ProjectEditorPage kind="corporate" />} />
                 <Route path=":id" element={<ProjectEditorPage kind="corporate" />} />
               </Route>
 

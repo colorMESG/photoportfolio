@@ -506,16 +506,17 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
   const sheet = usePhotography(contactSheet);
   const veil = usePhotography(veilStudy);
   const frag = usePhotography(fragments);
-  const [p1a, p1b] = study.images;
-  const [p2a, p2b] = location.images;
-  const [p4] = veil.images;
-  const [p5a, p5b, p5c] = frag.images;
+  const [p1a, p1b] = study?.images ?? [];
+  const [p2a, p2b] = location?.images ?? [];
+  const [p4] = veil?.images ?? [];
+  const [p5a, p5b, p5c] = frag?.images ?? [];
   return (
     <section id="work" className="bg-[#f5f0e8] pt-28 pb-0">
       <div className="px-8 md:px-14 overflow-hidden">
         <Reveal><ScrambleText text={headings.selectedWorks.lines[0]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9 }} /></Reveal>
         <Reveal delay={80}><ScrambleText text={headings.selectedWorks.lines[1]} className="font-display font-black leading-none" style={{ fontSize:"clamp(52px,11vw,170px)", letterSpacing:"-0.02em", lineHeight:0.9, marginLeft:"8vw", color:"transparent", WebkitTextStroke:"1.5px #0a0a0a" }} /></Reveal>
       </div>
+      {study && (
       <div className="mt-24 px-8 md:px-14">
         <Reveal className="flex items-start gap-3 md:gap-6 mb-6"><Lbl>{study.displayNumber}</Lbl><div><Lbl>{study.title}</Lbl><Lbl>{study.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4 md:gap-6 items-start">
@@ -524,6 +525,8 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         </div>
         <PhotoOverflow images={study.images.slice(2)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
       </div>
+      )}
+      {location && (
       <div className="mt-24 bg-[#0a0a0a] py-20 px-8 md:px-14">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl light>{location.displayNumber}</Lbl><div><Lbl light>{location.title}</Lbl><Lbl light>{location.year}</Lbl></div></Reveal>
         <div className="flex flex-col md:flex-row gap-4 md:gap-5 items-end">
@@ -533,12 +536,16 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         <PhotoOverflow images={location.images.slice(2)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
         <Reveal delay={200} className="mt-8"><ScrambleText text={ghost.locationSeries} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.07)" }} /></Reveal>
       </div>
+      )}
+      {sheet && (
       <div className="mt-24 px-8 md:px-14">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl>{sheet.displayNumber}</Lbl><div><Lbl>{sheet.title}</Lbl><Lbl>{sheet.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-3 gap-2 md:gap-4">
           {sheet.images.map((img,i) => <Reveal key={img.id} delay={i*100}><Photo src={img.src} alt={img.alt} className="w-full" style={{ aspectRatio:"2/3.2" }} onHover={onImgHover} onLeave={onImgLeave} exifIdx={img.exifIdx} objectPosition={imgPos(img)} /></Reveal>)}
         </div>
       </div>
+      )}
+      {veil && (
       <div className="mt-24">
         {p4 && (
           <Reveal>
@@ -552,6 +559,8 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
           <PhotoOverflow images={veil.images.slice(1)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
         </div>
       </div>
+      )}
+      {frag && (
       <div className="mt-24 px-8 md:px-14 pb-24">
         <Reveal className="flex items-center gap-4 mb-8"><Lbl>{frag.displayNumber}</Lbl><div><Lbl>{frag.title}</Lbl><Lbl>{frag.year}</Lbl></div></Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_0.6fr_0.5fr] gap-4 items-start">
@@ -561,6 +570,7 @@ function SelectedWork({ onImgHover, onImgLeave }: HP) {
         </div>
         <PhotoOverflow images={frag.images.slice(3)} onImgHover={onImgHover} onImgLeave={onImgLeave} />
       </div>
+      )}
     </section>
   );
 }
@@ -621,6 +631,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
       </div>
 
       {/* HEADSHOTS ─ lưới 3 cột */}
+      {portraits.length > 0 && (
       <div className="px-8 md:px-14 mb-20">
         <Reveal className="flex items-center gap-4 mb-8">
           <div className="w-8 h-px bg-[#0a0a0a]" />
@@ -637,6 +648,7 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
           })}
         </div>
       </div>
+      )}
 
       {/* EVENTS */}
       <div className="bg-[#0a0a0a] py-20 px-8 md:px-14 mb-0">
@@ -646,17 +658,19 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
         </Reveal>
         {/* Large event + small portrait */}
         <div className="grid grid-cols-1 md:grid-cols-[1.8fr_1fr] gap-3 md:gap-4 mb-4 items-start">
-          <Reveal><CorpPhoto src={panel.src} alt={panel.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={panel.category} client={panel.client} year={panel.year} objectPosition={imgPos(panel)} /></Reveal>
-          <Reveal delay={120} className="md:mt-12"><CorpPhoto src={award.src} alt={award.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={award.category} client={award.client} year={award.year} objectPosition={imgPos(award)} /></Reveal>
+          {panel && <Reveal><CorpPhoto src={panel.src} alt={panel.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={panel.category} client={panel.client} year={panel.year} objectPosition={imgPos(panel)} /></Reveal>}
+          {award && <Reveal delay={120} className="md:mt-12"><CorpPhoto src={award.src} alt={award.alt} className="w-full" style={{ aspectRatio:"2/3" }} onHover={onImgHover} onLeave={onImgLeave} category={award.category} client={award.client} year={award.year} objectPosition={imgPos(award)} /></Reveal>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-4">
-          <Reveal><CorpPhoto src={gala.src} alt={gala.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={gala.category} client={gala.client} year={gala.year} objectPosition={imgPos(gala)} /></Reveal>
+          {gala && <Reveal><CorpPhoto src={gala.src} alt={gala.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={gala.category} client={gala.client} year={gala.year} objectPosition={imgPos(gala)} /></Reveal>}
+          {(networking || stage) && (
           <Reveal delay={100}>
             <div className="grid grid-cols-2 gap-3 md:gap-4 h-full">
-              <CorpPhoto src={networking.src} alt={networking.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={networking.category} client={networking.client} year={networking.year} objectPosition={imgPos(networking)} />
-              <CorpPhoto src={stage.src} alt={stage.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={stage.category} client={stage.client} year={stage.year} objectPosition={imgPos(stage)} />
+              {networking && <CorpPhoto src={networking.src} alt={networking.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={networking.category} client={networking.client} year={networking.year} objectPosition={imgPos(networking)} />}
+              {stage && <CorpPhoto src={stage.src} alt={stage.alt} className="w-full" style={{ aspectRatio:"1" }} onHover={onImgHover} onLeave={onImgLeave} category={stage.category} client={stage.client} year={stage.year} objectPosition={imgPos(stage)} />}
             </div>
           </Reveal>
+          )}
         </div>
         <Reveal delay={160} className="mt-10">
           <ScrambleText text={ghost.events} className="font-display font-black leading-none" style={{ fontSize:"clamp(40px,8vw,130px)", letterSpacing:"-0.02em", color:"rgba(255,255,255,0.06)" }} />
@@ -670,12 +684,12 @@ function CorporateSection({ onImgHover, onImgLeave }: HP) {
           <span className="font-mono text-[9px] tracking-[0.28em] uppercase text-[#888]">{headings.corporate.teamsLabel}</span>
         </Reveal>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4 mb-4">
-          <Reveal><CorpPhoto src={diverse.src} alt={diverse.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={diverse.category} client={diverse.client} year={diverse.year} objectPosition={imgPos(diverse)} /></Reveal>
-          <Reveal delay={100}><CorpPhoto src={business.src} alt={business.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={business.category} client={business.client} year={business.year} objectPosition={imgPos(business)} /></Reveal>
+          {diverse && <Reveal><CorpPhoto src={diverse.src} alt={diverse.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={diverse.category} client={diverse.client} year={diverse.year} objectPosition={imgPos(diverse)} /></Reveal>}
+          {business && <Reveal delay={100}><CorpPhoto src={business.src} alt={business.alt} className="w-full" style={{ aspectRatio:"16/9" }} onHover={onImgHover} onLeave={onImgLeave} category={business.category} client={business.client} year={business.year} objectPosition={imgPos(business)} /></Reveal>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-4">
-          <Reveal><CorpPhoto src={outdoor.src} alt={outdoor.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={outdoor.category} client={outdoor.client} year={outdoor.year} objectPosition={imgPos(outdoor)} /></Reveal>
-          <Reveal delay={120}><CorpPhoto src={overhead.src} alt={overhead.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={overhead.category} client={overhead.client} year={overhead.year} objectPosition={imgPos(overhead)} /></Reveal>
+          {outdoor && <Reveal><CorpPhoto src={outdoor.src} alt={outdoor.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={outdoor.category} client={outdoor.client} year={outdoor.year} objectPosition={imgPos(outdoor)} /></Reveal>}
+          {overhead && <Reveal delay={120}><CorpPhoto src={overhead.src} alt={overhead.alt} className="w-full" style={{ aspectRatio:"16/10" }} onHover={onImgHover} onLeave={onImgLeave} category={overhead.category} client={overhead.client} year={overhead.year} objectPosition={imgPos(overhead)} /></Reveal>}
         </div>
       </div>
     </section>
@@ -783,6 +797,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
       </div>
 
       {/* Hero aerial — full width */}
+      {haLong && (
       <Reveal className="px-4 md:px-8 mb-4">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}
@@ -796,8 +811,10 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
           <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{haLong.coordinates}</div>
         </div>
       </Reveal>
+      )}
 
       {/* Second wide aerial */}
+      {saPa && (
       <Reveal className="px-4 md:px-8 mb-4">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
@@ -810,6 +827,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
           <div className="absolute top-4 right-5 font-mono text-[8px] tracking-[0.2em] uppercase text-white/30">{saPa.coordinates}</div>
         </div>
       </Reveal>
+      )}
 
       {/* Grid of 4 portraits */}
       <div className="px-4 md:px-8 grid grid-cols-2 md:grid-cols-4 gap-[3px] mb-4">
@@ -822,6 +840,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
       </div>
 
       {/* Panoramic closer */}
+      {muCangChai && (
       <Reveal className="px-4 md:px-8">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
@@ -837,8 +856,10 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
           </div>
         </div>
       </Reveal>
+      )}
 
       {/* Karst panoramic */}
+      {baiTuLong && (
       <Reveal className="px-4 md:px-8 mt-[3px]">
         <div className="relative overflow-hidden" style={{ cursor:"none" }}
           onMouseEnter={onImgHover} onMouseLeave={onImgLeave}>
@@ -850,6 +871,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
           </div>
         </div>
       </Reveal>
+      )}
 
       {/* Capabilities strip */}
       <Reveal className="px-8 md:px-14 mt-16">
@@ -870,6 +892,7 @@ function FlycamSection({ onImgHover, onImgLeave }: HP) {
 function RosieStory({ onImgHover, onImgLeave }: HP) {
   const { rosieNumerals } = useSiteCopy();
   const rosie = usePhotography(rosieProject);
+  if (!rosie) return null;
   const [r1, r2, r3, r4a, r4b, r5a, r5b, r5c, r6] = rosie.images;
   return (
     <section className="bg-[#f5f0e8] pt-24 pb-28">

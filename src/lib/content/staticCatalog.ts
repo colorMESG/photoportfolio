@@ -18,7 +18,7 @@ import {
 } from "../../content/flycam";
 import { personalGallery } from "../../content/gallery";
 import { collage, filmStripContent, rosieProject, selectedWorks } from "../../content/projects";
-import type { ProjectKind } from "../db/types";
+import type { CorporateCategory, ProjectKind } from "../db/types";
 
 export interface StaticPhoto {
   id: string;
@@ -37,6 +37,15 @@ export interface StaticProjectRef {
   kind: ProjectKind;
   title: string;
   images: StaticPhoto[];
+  subtitle?: string;
+  year?: string;
+  location?: string;
+  displayNumber?: string;
+  category?: string;
+  client?: string;
+  corporateCategory?: CorporateCategory;
+  coordinates?: string;
+  altitude?: string;
 }
 
 function photosFromProject(
@@ -55,12 +64,23 @@ function photosFromProject(
     altitude?: string;
     location?: string;
     caption?: string;
-  }>
+    coordinates?: string;
+  }>,
+  meta: Partial<StaticProjectRef> = {}
 ): StaticProjectRef {
   return {
     slug,
     kind,
     title,
+    subtitle: meta.subtitle,
+    year: meta.year ?? images[0]?.year,
+    location: meta.location ?? images[0]?.region ?? images[0]?.location,
+    displayNumber: meta.displayNumber,
+    category: meta.category ?? images[0]?.category,
+    client: meta.client ?? images[0]?.client,
+    corporateCategory: meta.corporateCategory,
+    coordinates: meta.coordinates ?? images[0]?.coordinates,
+    altitude: meta.altitude ?? images[0]?.altitude,
     images: images.map((image) => ({
       id: image.id,
       src: image.src,
@@ -75,16 +95,40 @@ function photosFromProject(
 
 const photography: StaticProjectRef[] = [
   ...selectedWorks.map((project) =>
-    photosFromProject(project.slug, "photography", project.title, project.images)
+    photosFromProject(project.slug, "photography", project.title, project.images, {
+      subtitle: project.subtitle,
+      year: project.year,
+      location: project.location,
+      displayNumber: project.displayNumber,
+      category: project.category,
+    })
   ),
-  photosFromProject(rosieProject.slug, "photography", rosieProject.title, rosieProject.images),
+  photosFromProject(rosieProject.slug, "photography", rosieProject.title, rosieProject.images, {
+    subtitle: rosieProject.subtitle,
+    year: rosieProject.year,
+    location: rosieProject.location,
+  }),
 ];
 
 const flycam: StaticProjectRef[] = [
-  photosFromProject("vinh-ha-long", "flycam", flyHaLong.title, [flyHaLong]),
-  photosFromProject("thung-lung-sa-pa", "flycam", flySaPa.title, [flySaPa]),
-  photosFromProject("mu-cang-chai", "flycam", flyMuCangChai.title, [flyMuCangChai]),
-  photosFromProject("vinh-bai-tu-long", "flycam", flyBaiTuLong.title, [flyBaiTuLong]),
+  photosFromProject("vinh-ha-long", "flycam", flyHaLong.title, [flyHaLong], {
+    location: flyHaLong.region,
+    altitude: flyHaLong.altitude,
+    coordinates: flyHaLong.coordinates,
+  }),
+  photosFromProject("thung-lung-sa-pa", "flycam", flySaPa.title, [flySaPa], {
+    location: flySaPa.region,
+    altitude: flySaPa.altitude,
+    coordinates: flySaPa.coordinates,
+  }),
+  photosFromProject("mu-cang-chai", "flycam", flyMuCangChai.title, [flyMuCangChai], {
+    location: flyMuCangChai.region,
+    altitude: flyMuCangChai.altitude,
+  }),
+  photosFromProject("vinh-bai-tu-long", "flycam", flyBaiTuLong.title, [flyBaiTuLong], {
+    location: flyBaiTuLong.region,
+    altitude: flyBaiTuLong.altitude,
+  }),
 ];
 
 const corporate: StaticProjectRef[] = [
@@ -92,15 +136,41 @@ const corporate: StaticProjectRef[] = [
     "chan-dung-headshot",
     "corporate",
     "Chân dung Cá nhân & Headshot",
-    headshots
+    headshots,
+    { corporateCategory: "headshot", year: headshots[0]?.year }
   ),
   ...events.map((event) =>
-    photosFromProject(slugFromTitle(event.client), "corporate", event.client, [event])
+    photosFromProject(slugFromTitle(event.client), "corporate", event.client, [event], {
+      corporateCategory: "event",
+      client: event.client,
+      category: event.category,
+      year: event.year,
+    })
   ),
-  photosFromProject("startup-hcm", "corporate", teams[0].client, [teams[0]]),
-  photosFromProject("doanh-nghiep-hcm", "corporate", teams[1].client, [teams[1]]),
-  photosFromProject("creative-agency", "corporate", teams[2].client, [teams[2]]),
-  photosFromProject("teambuilding-2025", "corporate", teams[3].client, [teams[3]]),
+  photosFromProject("startup-hcm", "corporate", teams[0].client, [teams[0]], {
+    corporateCategory: "team",
+    client: teams[0].client,
+    category: teams[0].category,
+    year: teams[0].year,
+  }),
+  photosFromProject("doanh-nghiep-hcm", "corporate", teams[1].client, [teams[1]], {
+    corporateCategory: "team",
+    client: teams[1].client,
+    category: teams[1].category,
+    year: teams[1].year,
+  }),
+  photosFromProject("creative-agency", "corporate", teams[2].client, [teams[2]], {
+    corporateCategory: "team",
+    client: teams[2].client,
+    category: teams[2].category,
+    year: teams[2].year,
+  }),
+  photosFromProject("teambuilding-2025", "corporate", teams[3].client, [teams[3]], {
+    corporateCategory: "team",
+    client: teams[3].client,
+    category: teams[3].category,
+    year: teams[3].year,
+  }),
 ];
 
 function slugFromTitle(title: string): string {
@@ -121,6 +191,12 @@ for (const project of [...photography, ...flycam, ...corporate]) {
 
 export function staticProject(kind: ProjectKind, slug: string): StaticProjectRef | null {
   return byKey.get(`${kind}:${slug}`) ?? null;
+}
+
+export function staticProjects(kind: ProjectKind): StaticProjectRef[] {
+  if (kind === "photography") return photography;
+  if (kind === "flycam") return flycam;
+  return corporate;
 }
 
 export function staticCover(kind: ProjectKind, slug: string): StaticPhoto | null {

@@ -1,4 +1,5 @@
 import { requireSupabase } from "../supabase";
+import type { StaticProjectRef } from "../content/staticCatalog";
 import type { ProjectDraft, ProjectKind, ProjectRow } from "./types";
 
 /**
@@ -46,6 +47,19 @@ export async function getProject(id: string): Promise<Result<ProjectRow>> {
     .from("projects")
     .select("*")
     .eq("id", id)
+    .maybeSingle();
+  return { data: (data as ProjectRow) ?? null, error: error ? describe(error) : null };
+}
+
+export async function getProjectBySlug(
+  kind: ProjectKind,
+  slug: string
+): Promise<Result<ProjectRow>> {
+  const { data, error } = await requireSupabase()
+    .from("projects")
+    .select("*")
+    .eq("kind", kind)
+    .eq("slug", slug)
     .maybeSingle();
   return { data: (data as ProjectRow) ?? null, error: error ? describe(error) : null };
 }
@@ -117,5 +131,23 @@ export function emptyProject(kind: ProjectKind, sortOrder: number): ProjectDraft
     altitude: null,
     client: null,
     corporate_category: kind === "corporate" ? "headshot" : null,
+  };
+}
+
+export function draftFromStatic(catalog: StaticProjectRef, sortOrder: number): ProjectDraft {
+  const base = emptyProject(catalog.kind, sortOrder);
+  return {
+    ...base,
+    slug: catalog.slug,
+    title: catalog.title,
+    subtitle: catalog.subtitle ?? null,
+    category: catalog.category ?? null,
+    location: catalog.location ?? null,
+    year: catalog.year ?? null,
+    display_number: catalog.displayNumber ?? null,
+    coordinates: catalog.coordinates ?? null,
+    altitude: catalog.altitude ?? null,
+    client: catalog.client ?? null,
+    corporate_category: catalog.corporateCategory ?? base.corporate_category,
   };
 }

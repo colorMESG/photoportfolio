@@ -120,6 +120,13 @@ export interface ContentBlockRow {
   updated_at: string;
 }
 
+export interface ProjectVisibilityRow {
+  kind: ProjectKind;
+  slug: string;
+  visible: boolean;
+  updated_at: string;
+}
+
 export interface ServiceRow extends ImageDerivativeFields {
   id: string;
   display_number: string | null;

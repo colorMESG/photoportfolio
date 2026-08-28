@@ -71,7 +71,12 @@ export default function DashboardPage() {
 
       <p className="mt-8 max-w-prose text-sm leading-relaxed text-neutral-500">
         Public content resolves as{" "}
-        <code className="text-neutral-400">published Supabase value → static fallback</code>.
+        <code className="text-neutral-400">hidden override → nothing</code>
+        {", "}
+        <code className="text-neutral-400">published managed project → managed</code>
+        {", otherwise "}
+        <code className="text-neutral-400">static fallback</code>
+        . Hiding a static-backed project does not restore it when the database row is missing.
         Page copy uses{" "}
         <code className="text-neutral-400">Save Draft</code> then{" "}
         <code className="text-neutral-400">Publish</code>. Run{" "}
@@ -79,7 +84,9 @@ export default function DashboardPage() {
         {", "}
         <code className="text-neutral-400">0006_image_derivatives.sql</code>
         {", then "}
-        <code className="text-neutral-400">0007_project_image_display_metadata.sql</code>{" "}
+        <code className="text-neutral-400">0007_project_image_display_metadata.sql</code>
+        {", then "}
+        <code className="text-neutral-400">0008_project_visibility_overrides.sql</code>{" "}
         in the SQL Editor. Photographs are optimized in the browser before
         upload — originals are not stored on the Free plan. Until 0005 is
         applied, drafts share the live{" "}

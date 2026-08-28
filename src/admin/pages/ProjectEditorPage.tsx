@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { staticProject } from "../../lib/content/staticCatalog";
+import { staticProject, staticProjects } from "../../lib/content/staticCatalog";
 import {
   createProject,
   deleteProject,
+  draftFromStatic,
   emptyProject,
   getProject,
+  getProjectBySlug,
   listAllSlugs,
   nextSortOrder,
   updateProject,
 } from "../../lib/db/projects";
 import { listProjectImages } from "../../lib/db/images";
+import { hiddenKeySet, listVisibility, setProjectVisible } from "../../lib/db/visibility";
 import {
   CORPORATE_CATEGORIES,
   type CorporateCategory,
@@ -37,54 +40,96 @@ import { PageHeader, ViewOnSite } from "../components/PageHeader";
 const nullify = (v: string): string | null => (v.trim() === "" ? null : v.trim());
 
 export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
-  const { id } = useParams<{ id: string }>();
-  const isNew = id === "new" || id === undefined;
+  const { id, slug: routeSlug } = useParams<{ id?: string; slug?: string }>();
+  const isNew = id === "new";
   const navigate = useNavigate();
 
+  const [rowId, setRowId] = useState<string | null>(isNew || routeSlug ? null : id ?? null);
   const [draft, setDraft] = useState<ProjectDraft | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
   const [takenSlugs, setTakenSlugs] = useState<string[]>([]);
+  const [hidden, setHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const imagesRef = useRef<ImageManagerHandle>(null);
   const [managedCount, setManagedCount] = useState(0);
-  const currentPhotos = draft ? staticProject(kind, draft.slug)?.images ?? [] : [];
-  const fallbackInactive = Boolean(draft?.published && managedCount > 0);
+  const catalog = draft ? staticProject(kind, draft.slug) : routeSlug ? staticProject(kind, routeSlug) : null;
+  const hasStatic = Boolean(catalog);
+  const currentPhotos = catalog?.images ?? [];
+  const fallbackInactive = Boolean(!hidden && draft?.published && managedCount > 0);
 
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const slugs = await listAllSlugs(kind);
+      const [slugs, visibility] = await Promise.all([listAllSlugs(kind), listVisibility(kind)]);
       if (!alive) return;
-      setTakenSlugs(slugs);
+      setTakenSlugs([...new Set([...slugs, ...staticProjects(kind).map((item) => item.slug)])]);
+      const hiddenSlugs = hiddenKeySet(visibility.data);
+      const visibilityWarning = visibility.error;
 
       if (isNew) {
         const order = await nextSortOrder(kind);
-        if (alive) setDraft(emptyProject(kind, order));
+        if (alive) {
+          setDraft(emptyProject(kind, order));
+          if (visibilityWarning) setError(visibilityWarning);
+        }
         return;
       }
+
+      if (routeSlug) {
+        setHidden(hiddenSlugs.has(`${kind}:${routeSlug}`));
+        const existing = await getProjectBySlug(kind, routeSlug);
+        if (!alive) return;
+        if (existing.error) {
+          setError(existing.error);
+          return;
+        }
+        if (existing.data) {
+          setRowId(existing.data.id);
+          const { id: _id, created_at: _c, updated_at: _u, ...rest } = existing.data;
+          setSlugTouched(true);
+          setDraft(rest);
+          if (visibilityWarning) setError(visibilityWarning);
+          navigate(`../${existing.data.id}`, { replace: true });
+          return;
+        }
+        const staticRef = staticProject(kind, routeSlug);
+        if (!staticRef) {
+          setError("That static project is not in the catalog.");
+          return;
+        }
+        const order = await nextSortOrder(kind);
+        if (!alive) return;
+        setSlugTouched(true);
+        setDraft(draftFromStatic(staticRef, order));
+        if (visibilityWarning) setError(visibilityWarning);
+        return;
+      }
+
       const { data, error: err } = await getProject(id!);
       if (!alive) return;
       if (err || !data) {
         setError(err ?? "That project no longer exists.");
         return;
       }
+      setRowId(data.id);
       setSlugTouched(true);
+      setHidden(hiddenSlugs.has(`${kind}:${data.slug}`));
       const { id: _id, created_at: _c, updated_at: _u, ...rest } = data;
       setDraft(rest);
+      if (visibilityWarning) setError(visibilityWarning);
     })();
     return () => {
       alive = false;
     };
-  }, [id, isNew, kind]);
+  }, [id, isNew, kind, navigate, routeSlug]);
 
   const patch = <K extends keyof ProjectDraft>(key: K, value: ProjectDraft[K]) => {
     setSaved(false);
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   };
 
-  // While the slug has not been edited by hand, keep it in step with the title.
   function onTitleChange(value: string) {
     setSaved(false);
     setDraft((d) => {
@@ -99,12 +144,17 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
 
   const slugPreview = useMemo(() => draft?.slug ?? "", [draft?.slug]);
 
+  async function persist(body: ProjectDraft) {
+    if (rowId) return updateProject(rowId, body);
+    return createProject(body);
+  }
+
   async function save(publishState?: boolean) {
     if (!draft) return;
     const body: ProjectDraft = {
       ...draft,
       title: draft.title.trim(),
-      slug: slugify(draft.slug) || uniqueSlug(draft.title, takenSlugs),
+      slug: slugify(draft.slug) || uniqueSlug(draft.title, takenSlugs.filter((s) => s !== draft.slug)),
       published: publishState ?? draft.published,
     };
     if (!body.title) {
@@ -114,9 +164,7 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
 
     setSaving(true);
     setError(null);
-    const result = isNew
-      ? await createProject(body)
-      : await updateProject(id!, body);
+    const result = await persist(body);
     setSaving(false);
 
     if (result.error) {
@@ -124,24 +172,66 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
       return;
     }
     setSaved(true);
-    if (isNew && result.data) {
-      navigate(`../${result.data.id}`, { replace: true });
-    } else {
-      setDraft((d) => (d ? { ...d, published: body.published, slug: body.slug } : d));
+    if (result.data) {
+      setRowId(result.data.id);
+      setDraft((d) =>
+        d ? { ...d, published: body.published, slug: body.slug } : d
+      );
+      if (!rowId) navigate(`../${result.data.id}`, { replace: true });
     }
   }
 
+  async function ensureRow(): Promise<string | null> {
+    if (rowId) return rowId;
+    if (!draft) return null;
+    const body: ProjectDraft = {
+      ...draft,
+      title: draft.title.trim() || catalog?.title || "Untitled project",
+      slug: slugify(draft.slug) || catalog?.slug || uniqueSlug(draft.title, takenSlugs),
+    };
+    setSaving(true);
+    setError(null);
+    const result = await createProject(body);
+    setSaving(false);
+    if (result.error || !result.data) {
+      setError(result.error ?? "Could not create the project row.");
+      return null;
+    }
+    setRowId(result.data.id);
+    setDraft((d) => (d ? { ...d, slug: result.data!.slug, title: result.data!.title } : d));
+    navigate(`../${result.data.id}`, { replace: true });
+    return result.data.id;
+  }
+
+  async function hideFromPublic() {
+    if (!draft) return;
+    const ok = window.confirm(
+      `Hide “${draft.title}” from the public site?\n\nThe static fallback will not return until you Restore.`
+    );
+    if (!ok) return;
+    const { error: err } = await setProjectVisible(kind, draft.slug, false);
+    if (err) return setError(err);
+    setHidden(true);
+  }
+
+  async function restorePublic() {
+    if (!draft) return;
+    const { error: err } = await setProjectVisible(kind, draft.slug, true);
+    if (err) return setError(err);
+    setHidden(false);
+  }
+
   async function remove() {
-    if (isNew || !draft) return;
+    if (!rowId || !draft || hasStatic) return;
     const ok = window.confirm(
       `Delete “${draft.title}”?\n\nIts photographs are removed from the database too. This cannot be undone.`
     );
     if (!ok) return;
-    const photos = await listProjectImages(id!);
+    const photos = await listProjectImages(rowId);
     const paths = (photos.data ?? []).flatMap((row) =>
       managedAssetPaths(row.storage_path, row.thumbnail_path)
     );
-    const { error: err } = await deleteProject(id!);
+    const { error: err } = await deleteProject(rowId);
     if (err) return setError(err);
     await deleteStoredObjects(paths);
     navigate("..");
@@ -175,9 +265,13 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
         description={
           isNew
             ? "Saved as a draft until you publish it."
-            : draft.published
-              ? "Live on the public site."
-              : "Draft — not visible to visitors."
+            : hidden
+              ? "Hidden from the public site."
+              : draft.published
+                ? "Live on the public site."
+                : hasStatic && !rowId
+                  ? "Static fallback — live until hidden or replaced."
+                  : "Draft — visitors still see the static fallback if one exists."
         }
         actions={
           <div className="flex gap-2">
@@ -187,41 +281,64 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
               }
             />
             <Button onClick={() => navigate("..")}>Back</Button>
-            {!isNew && (
+            {hasStatic ? (
+              hidden ? (
+                <Button onClick={() => void restorePublic()}>Restore</Button>
+              ) : (
+                <Button onClick={() => void hideFromPublic()}>Hide from public</Button>
+              )
+            ) : rowId ? (
               <Button variant="danger" onClick={() => void remove()}>
                 Delete
               </Button>
-            )}
+            ) : null}
           </div>
         }
       />
 
       {error && <div className="mb-5"><ErrorNote>{error}</ErrorNote></div>}
 
-      {!isNew && id && (
+      {!isNew && (
         <div className="mb-12 space-y-10">
-          <CurrentPhotographs
-            photos={currentPhotos}
-            inactive={fallbackInactive}
-            onUpload={() => {
-              document.getElementById("managed-photographs")?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
-              imagesRef.current?.openFilePicker();
-            }}
-          />
-          <ImageManager
-            ref={imagesRef}
-            projectId={id}
-            slug={draft.slug}
-            kind={kind}
-            corporateCategory={draft.corporate_category}
-            staticSlots={currentPhotos}
-            coverImageId={draft.cover_image_id}
-            onCoverChange={(coverId) => patch("cover_image_id", coverId)}
-            onCountChange={setManagedCount}
-          />
+          {currentPhotos.length > 0 && (
+            <CurrentPhotographs
+              photos={currentPhotos}
+              inactive={fallbackInactive || hidden}
+              onUpload={() => {
+                void (async () => {
+                  const ensured = await ensureRow();
+                  if (!ensured) return;
+                  document.getElementById("managed-photographs")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                  imagesRef.current?.openFilePicker();
+                })();
+              }}
+            />
+          )}
+          {rowId ? (
+            <ImageManager
+              ref={imagesRef}
+              projectId={rowId}
+              slug={draft.slug}
+              kind={kind}
+              corporateCategory={draft.corporate_category}
+              staticSlots={currentPhotos}
+              coverImageId={draft.cover_image_id}
+              onCoverChange={(coverId) => patch("cover_image_id", coverId)}
+              onCountChange={setManagedCount}
+            />
+          ) : (
+            <section id="managed-photographs" className="max-w-4xl space-y-3">
+              <h2 className="text-xl font-medium text-neutral-100">Managed photographs</h2>
+              <p className="text-sm text-neutral-500">
+                Saving or starting uploads creates the Supabase project row. Hide from public
+                does not need a row — it only writes a visibility override.
+              </p>
+              <Button onClick={() => void ensureRow()}>Start managing photographs</Button>
+            </section>
+          )}
         </div>
       )}
 
@@ -353,15 +470,19 @@ export default function ProjectEditorPage({ kind }: { kind: ProjectKind }) {
             checked={draft.published}
             onChange={(v) => patch("published", v)}
             label="Published"
-            hint="Unpublished projects are invisible to visitors — enforced by the database, not just this screen."
+            hint={
+              hasStatic
+                ? "Publishing a managed set replaces the static fallback. Unpublishing restores the fallback unless the project is Hidden."
+                : "Unpublished projects are invisible to visitors — enforced by the database, not just this screen."
+            }
           />
         </div>
 
         <div className="flex items-center gap-3 border-t border-neutral-800 pt-6">
           <Button type="submit" variant="primary" disabled={saving}>
-            {saving ? "Saving…" : isNew ? "Create project" : "Save changes"}
+            {saving ? "Saving…" : rowId ? "Save changes" : "Save project"}
           </Button>
-          {!isNew && (
+          {rowId && (
             <Button
               disabled={saving}
               onClick={() => void save(!draft.published)}

@@ -69,7 +69,10 @@ export function SourceBadge({
     | "supabase-new"
     | "managed-supabase"
     | "fallback-live"
-    | "fallback-inactive";
+    | "fallback-inactive"
+    | "static-fallback"
+    | "hidden"
+    | "published";
 }) {
   const label = {
     static: "STATIC",
@@ -79,14 +82,19 @@ export function SourceBadge({
     "managed-supabase": "MANAGED · SUPABASE",
     "fallback-live": "FALLBACK · LIVE",
     "fallback-inactive": "FALLBACK · NOT LIVE",
+    "static-fallback": "STATIC FALLBACK",
+    hidden: "HIDDEN",
+    published: "PUBLISHED",
   }[source];
 
   const tone =
-    source === "supabase" || source === "supabase-new"
+    source === "supabase" || source === "supabase-new" || source === "published"
       ? "border-emerald-900/70 bg-emerald-950/50 text-emerald-300"
-      : source === "fallback-inactive"
-        ? "border-amber-900/70 bg-amber-950/40 text-amber-300"
-        : "border-neutral-700 bg-neutral-950/70 text-neutral-300";
+      : source === "hidden"
+        ? "border-red-900/70 bg-red-950/40 text-red-300"
+        : source === "fallback-inactive"
+          ? "border-amber-900/70 bg-amber-950/40 text-amber-300"
+          : "border-neutral-700 bg-neutral-950/70 text-neutral-300";
 
   return (
     <span

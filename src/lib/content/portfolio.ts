@@ -5,11 +5,12 @@
  * Supabase projects overlay that snapshot, matched by `kind + slug`.
  *
  * Photographs are exclusive, never mixed or padded:
+ *   visibility override hidden → render nothing
  *   published managed photographs exist → render that set only
  *   none → render the static fallback set
  *
- * Deleting every managed photograph restores the static fallback. Static
- * files in `src/content/` are never written or removed.
+ * Deleting the Supabase project row does not restore a hidden static fallback.
+ * Static files in `src/content/` are never written or removed.
  *
  * Fetches PostgREST directly so supabase-js stays out of the public bundle.
  */
@@ -26,8 +27,29 @@ export interface ManagedProject {
 
 export type PortfolioOverlays = Record<string, ManagedProject>;
 
+export interface PortfolioSnapshot {
+  overlays: PortfolioOverlays;
+  hiddenKeys: string[];
+}
+
+export type PublicPresence = "hidden" | "managed" | "static";
+
 export function projectKey(kind: ProjectKind, slug: string): string {
   return `${kind}:${slug}`;
+}
+
+/** Public rendering rule for a kind+slug. Independent of Admin list merge. */
+export function resolvePublicPresence(input: {
+  hidden: boolean;
+  managedPublished: boolean;
+}): PublicPresence {
+  if (input.hidden) return "hidden";
+  if (input.managedPublished) return "managed";
+  return "static";
+}
+
+export function isHiddenKey(hiddenKeys: string[], kind: ProjectKind, slug: string): boolean {
+  return hiddenKeys.includes(projectKey(kind, slug));
 }
 
 export function toPublicImage(row: ProjectImageRow): ProjectImage | null {
@@ -193,19 +215,26 @@ export function overlayAerial(
 }
 
 /**
- * Loads published projects and their photographs. Returns null when Supabase
- * is unconfigured or unreachable so the caller keeps the static snapshot.
+ * Loads published projects, their photographs, and hidden-slug tombstones.
+ * Returns null when Supabase is unconfigured or the projects query fails so
+ * the caller keeps the static snapshot. A missing visibility table is treated
+ * as “nothing hidden” rather than failing the whole overlay.
  */
-export async function fetchPublishedPortfolio(): Promise<PortfolioOverlays | null> {
+export async function fetchPublishedPortfolio(): Promise<PortfolioSnapshot | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    const [projects, images] = await Promise.all([
+    const [projects, images, hiddenRows] = await Promise.all([
       restRows<ProjectRow>("projects?published=eq.true&select=*"),
       restRows<ProjectImageRow>(
         "project_images?select=*&order=sort_order.asc,created_at.asc"
       ),
+      restRows<{ kind: ProjectKind; slug: string }>(
+        "project_visibility_overrides?visible=eq.false&select=kind,slug"
+      ),
     ]);
     if (!projects) return null;
+
+    const hiddenKeys = (hiddenRows ?? []).map((row) => projectKey(row.kind, row.slug));
 
     const byProject = new Map<string, ProjectImage[]>();
     for (const row of images ?? []) {
@@ -218,15 +247,17 @@ export async function fetchPublishedPortfolio(): Promise<PortfolioOverlays | nul
 
     const overlays: PortfolioOverlays = {};
     for (const project of projects) {
+      const key = projectKey(project.kind, project.slug);
+      if (hiddenKeys.includes(key)) continue;
       const photos = (byProject.get(project.id) ?? []).slice().sort((a, b) => {
         return (a.order ?? 0) - (b.order ?? 0);
       });
-      overlays[projectKey(project.kind, project.slug)] = {
+      overlays[key] = {
         project,
         images: photos,
       };
     }
-    return overlays;
+    return { overlays, hiddenKeys };
   } catch {
     return null;
   }
@@ -234,6 +265,14 @@ export async function fetchPublishedPortfolio(): Promise<PortfolioOverlays | nul
 
 export function overlaysEqual(a: PortfolioOverlays, b: PortfolioOverlays): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function snapshotEqual(a: PortfolioSnapshot, b: PortfolioSnapshot): boolean {
+  if (!overlaysEqual(a.overlays, b.overlays)) return false;
+  if (a.hiddenKeys.length !== b.hiddenKeys.length) return false;
+  const left = [...a.hiddenKeys].sort();
+  const right = [...b.hiddenKeys].sort();
+  return left.every((key, index) => key === right[index]);
 }
 
 async function restRows<T>(path: string): Promise<T[] | null> {
